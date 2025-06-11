@@ -948,7 +948,7 @@
         console.log('🚀 StatsBet Pro v2.0 starting...');
         
         // Configuration
-        const API_BASE = '/api';
+        const API_BASE = 'https://statsbet-backend.vercel.app/api';
         const DEMO_MODE = false;
         
         console.log('📊 Initializing variables...');
@@ -3098,7 +3098,7 @@ console.log('DEBUG: Dividing backend yield by 100:', yieldValue);
                     `${API_BASE}/health`,
                     `${API_BASE}/bets`,
                     `${API_BASE}/stats`,
-                    'http://localhost:3000/',
+                   
                 ];
                 
                 let connected = false;
