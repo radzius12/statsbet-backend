@@ -1,40 +1,12 @@
-// SUPER PROSTY API Handler - na pewno zadziała
-const sqlite3 = require('sqlite3').verbose();
+// Ultra Simple API - BEZ SQLite (na pewno zadziała)
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
-const db = new sqlite3.Database('/tmp/statsbet.db');
 
-// Initialize tables
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    initial_amount REAL DEFAULT 1000,
-    tax_rate REAL DEFAULT 12,
-    verified INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS bets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    bet_type TEXT NOT NULL,
-    bet_category TEXT NOT NULL,
-    odds REAL NOT NULL,
-    stake REAL NOT NULL,
-    potential_win REAL NOT NULL,
-    result TEXT,
-    profile_id TEXT DEFAULT 'default',
-    sport TEXT,
-    note TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-});
+// In-memory storage (tymczasowo zamiast bazy)
+let users = [];
+let bets = [];
 
 export default async function handler(req, res) {
   // CORS
@@ -49,14 +21,16 @@ export default async function handler(req, res) {
   const path = req.query.all ? req.query.all.join('/') : '';
   
   try {
-    // HEALTH CHECK - ZAWSZE PIERWSZY!
+    // HEALTH CHECK
     if (path === 'health' && req.method === 'GET') {
       return res.status(200).json({
         status: 'OK',
-        message: 'StatsBet API is running WITHOUT email verification',
+        message: 'StatsBet API is running WITHOUT email verification (in-memory)',
         timestamp: new Date().toISOString(),
         method: req.method,
-        path: path
+        path: path,
+        users: users.length,
+        bets: bets.length
       });
     }
 
@@ -72,28 +46,31 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Hasło musi mieć minimum 6 znaków' });
       }
 
+      // Check if user exists
+      const existingUser = users.find(u => u.email === email.toLowerCase());
+      if (existingUser) {
+        return res.status(400).json({ error: 'Użytkownik o tym emailu już istnieje' });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      return new Promise((resolve) => {
-        db.run(
-          'INSERT INTO users (username, email, password, verified) VALUES (?, ?, ?, ?)',
-          [username.trim(), email.trim().toLowerCase(), hashedPassword, 1],
-          function(err) {
-            if (err) {
-              if (err.message.includes('UNIQUE constraint failed')) {
-                res.status(400).json({ error: 'Użytkownik o tym emailu już istnieje' });
-              } else {
-                res.status(500).json({ error: 'Błąd bazy danych' });
-              }
-            } else {
-              res.status(200).json({
-                message: 'Konto zostało utworzone pomyślnie! Możesz się teraz zalogować.',
-                autoVerified: true
-              });
-            }
-            resolve();
-          }
-        );
+      const newUser = {
+        id: users.length + 1,
+        username: username.trim(),
+        email: email.trim().toLowerCase(),
+        password: hashedPassword,
+        verified: 1,
+        initial_amount: 1000,
+        tax_rate: 12,
+        created_at: new Date().toISOString()
+      };
+
+      users.push(newUser);
+
+      return res.status(200).json({
+        message: 'Konto zostało utworzone pomyślnie! Możesz się teraz zalogować.',
+        autoVerified: true,
+        email: email
       });
     }
 
@@ -105,38 +82,32 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Email i hasło są wymagane' });
       }
 
-      return new Promise((resolve) => {
-        db.get('SELECT * FROM users WHERE email = ?', [email.trim().toLowerCase()], async (err, user) => {
-          if (err || !user) {
-            res.status(400).json({ error: 'Nieprawidłowe dane logowania' });
-            resolve();
-            return;
-          }
+      const user = users.find(u => u.email === email.toLowerCase());
+      if (!user) {
+        return res.status(400).json({ error: 'Nieprawidłowe dane logowania' });
+      }
 
-          const validPassword = await bcrypt.compare(password, user.password);
-          if (!validPassword) {
-            res.status(400).json({ error: 'Nieprawidłowe dane logowania' });
-            resolve();
-            return;
-          }
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ error: 'Nieprawidłowe dane logowania' });
+      }
 
-          const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-          );
+      const token = jwt.sign(
+        { userId: user.id, username: user.username },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
 
-          res.status(200).json({
-            message: 'Logowanie pomyślne',
-            token,
-            user: {
-              id: user.id,
-              username: user.username,
-              email: user.email
-            }
-          });
-          resolve();
-        });
+      return res.status(200).json({
+        message: 'Logowanie pomyślne',
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          initialAmount: user.initial_amount,
+          taxRate: user.tax_rate
+        }
       });
     }
 
@@ -157,12 +128,8 @@ export default async function handler(req, res) {
 
     // GET BETS
     if (path === 'bets' && req.method === 'GET') {
-      return new Promise((resolve) => {
-        db.all('SELECT * FROM bets WHERE user_id = ? ORDER BY date DESC', [user.userId], (err, rows) => {
-          res.json(rows || []);
-          resolve();
-        });
-      });
+      const userBets = bets.filter(bet => bet.user_id === user.userId);
+      return res.json(userBets);
     }
 
     // ADD BET
@@ -173,76 +140,103 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Required fields missing' });
       }
 
-      return new Promise((resolve) => {
-        db.run(
-          `INSERT INTO bets (user_id, date, bet_type, bet_category, odds, stake, potential_win, result, sport, note) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [user.userId, date, betType, betCategory, odds, stake, potentialWin || (odds * stake), result || null, sport || null, note || null],
-          function(err) {
-            if (err) {
-              res.status(500).json({ error: 'Database error' });
-            } else {
-              res.json({ message: 'Bet added successfully' });
-            }
-            resolve();
-          }
-        );
+      const newBet = {
+        id: bets.length + 1,
+        user_id: user.userId,
+        date,
+        bet_type: betType,
+        bet_category: betCategory,
+        odds: parseFloat(odds),
+        stake: parseFloat(stake),
+        potential_win: potentialWin || (parseFloat(odds) * parseFloat(stake)),
+        result: result || null,
+        profile_id: 'default',
+        sport: sport || null,
+        note: note || null,
+        created_at: new Date().toISOString()
+      };
+
+      bets.push(newBet);
+
+      return res.json({ 
+        message: 'Bet added successfully', 
+        bet: newBet 
       });
     }
 
     // GET STATS
     if (path === 'stats' && req.method === 'GET') {
-      return new Promise((resolve) => {
-        db.all('SELECT * FROM bets WHERE user_id = ?', [user.userId], (err, bets) => {
-          if (err) {
-            res.status(500).json({ error: 'Database error' });
-            resolve();
-            return;
-          }
+      const userBets = bets.filter(bet => bet.user_id === user.userId);
+      
+      const totalStake = userBets.reduce((sum, bet) => sum + parseFloat(bet.stake || 0), 0);
+      const wins = userBets.filter(bet => bet.result === 'WYGRANA').length;
+      const losses = userBets.filter(bet => bet.result === 'PRZEGRANA').length;
+      const returns = userBets.filter(bet => bet.result === 'ZWROT').length;
 
-          bets = bets || [];
-          const totalStake = bets.reduce((sum, bet) => sum + parseFloat(bet.stake || 0), 0);
-          const wins = bets.filter(bet => bet.result === 'WYGRANA').length;
-          const losses = bets.filter(bet => bet.result === 'PRZEGRANA').length;
-          const returns = bets.filter(bet => bet.result === 'ZWROT').length;
+      let profit = 0;
+      let totalWinnings = 0;
+      userBets.forEach(bet => {
+        if (bet.result === 'WYGRANA') {
+          const winAmount = parseFloat(bet.potential_win || 0) - parseFloat(bet.stake || 0);
+          profit += winAmount;
+          totalWinnings += parseFloat(bet.potential_win || 0);
+        } else if (bet.result === 'PRZEGRANA') {
+          profit -= parseFloat(bet.stake || 0);
+        }
+      });
 
-          let profit = 0;
-          bets.forEach(bet => {
-            if (bet.result === 'WYGRANA') {
-              profit += parseFloat(bet.potential_win || 0) - parseFloat(bet.stake || 0);
-            } else if (bet.result === 'PRZEGRANA') {
-              profit -= parseFloat(bet.stake || 0);
-            }
-          });
+      const initialAmount = 1000;
+      const currentAmount = initialAmount + profit;
+      const yieldPercentage = totalStake > 0 ? (profit / totalStake) * 100 : 0;
+      const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
+      const averageOdds = userBets.length > 0 ? userBets.reduce((sum, bet) => sum + parseFloat(bet.odds || 0), 0) / userBets.length : 0;
 
-          const initialAmount = 1000;
-          const currentAmount = initialAmount + profit;
-          const yieldPercentage = totalStake > 0 ? (profit / totalStake) * 100 : 0;
-          const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
-          const averageOdds = bets.length > 0 ? bets.reduce((sum, bet) => sum + parseFloat(bet.odds || 0), 0) / bets.length : 0;
-
-          res.json({
-            initialAmount: initialAmount.toFixed(2),
-            totalStake: totalStake.toFixed(2),
-            currentAmount: currentAmount.toFixed(2),
-            profit: profit.toFixed(2),
-            yieldPercentage: yieldPercentage.toFixed(2),
-            winLossRatio: `${wins} / ${losses} / ${returns}`,
-            winRate: winRate.toFixed(1),
-            averageOdds: averageOdds.toFixed(2),
-            totalBets: bets.length,
-            totalWinnings: '0.00'
-          });
-          resolve();
-        });
+      return res.json({
+        initialAmount: initialAmount.toFixed(2),
+        totalStake: totalStake.toFixed(2),
+        currentAmount: currentAmount.toFixed(2),
+        profit: profit.toFixed(2),
+        yieldPercentage: yieldPercentage.toFixed(2),
+        winLossRatio: `${wins} / ${losses} / ${returns}`,
+        winRate: winRate.toFixed(1),
+        averageOdds: averageOdds.toFixed(2),
+        totalBets: userBets.length,
+        totalWinnings: totalWinnings.toFixed(2)
       });
     }
 
+    // GET SETTINGS
+    if (path === 'settings' && req.method === 'GET') {
+      const currentUser = users.find(u => u.id === user.userId);
+      return res.json({
+        initialAmount: currentUser ? currentUser.initial_amount : 1000,
+        taxRate: currentUser ? currentUser.tax_rate : 12
+      });
+    }
+
+    // UPDATE SETTINGS
+    if (path === 'settings' && req.method === 'PUT') {
+      const { initialAmount, taxRate } = req.body;
+      const userIndex = users.findIndex(u => u.id === user.userId);
+      if (userIndex !== -1) {
+        users[userIndex].initial_amount = initialAmount;
+        users[userIndex].tax_rate = taxRate;
+      }
+      return res.json({ message: 'Settings updated successfully' });
+    }
+
     // 404
-    return res.status(404).json({ error: 'Endpoint not found: ' + path });
+    return res.status(404).json({ 
+      error: 'Endpoint not found: ' + path,
+      available: ['health', 'register', 'login', 'bets', 'stats', 'settings']
+    });
 
   } catch (error) {
     console.error('API Error:', error);
-    return res.status(500).json({ error: 'Internal server error: ' + error.message });
+    return res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message,
+      stack: error.stack
+    });
   }
 }
