@@ -13,13 +13,3 @@
     }
   ]
 }
-// W backendzie na Vercel
-app.use(cors({
-  origin: [
-    'http://statsbet.pl',
-    'https://statsbet.pl',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ],
-  credentials: true
-}));
