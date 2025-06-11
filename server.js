@@ -1,4 +1,4 @@
-// StatsBet Backend with Email Verification - MINIMALNA POPRAWKA CORS
+// StatsBet Backend - BEZ WERYFIKACJI EMAIL ✅
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
@@ -14,17 +14,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 
 // Middleware
 app.use(express.json());
-
-// ⭐ JEDYNA ZMIANA - POPRAWIONA LISTA ORIGINS
 app.use(cors({
-  origin: ['http://statsbet.pl', 'https://statsbet.pl', 'http://localhost:8080'],
+  origin: ['https://statsbet.pl', 'http://localhost:8080'],
   credentials: true
 }));
-
 app.use(express.static('public'));
 
-// Email transporter - BEZ ZMIAN
-const transporter = nodemailer.createTransport({
+// Email transporter - WYŁĄCZONY TYMCZASOWO
+const transporter = nodemailer.createTransporter({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT || 587,
   secure: false,
@@ -34,10 +31,10 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Database initialization - BEZ ZMIAN
-const db = new sqlite3.Database(':memory:');
+// Database initialization
+const db = new sqlite3.Database('./statsbet.db');
 
-// Create tables - BEZ ZMIAN
+// Create tables - POPRAWIONY (bez duplikatów)
 db.serialize(() => {
   // Users table with email verification
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -47,7 +44,7 @@ db.serialize(() => {
     password TEXT NOT NULL,
     initial_amount REAL DEFAULT 1000,
     tax_rate REAL DEFAULT 12,
-    verified INTEGER DEFAULT 0,
+    verified INTEGER DEFAULT 1,
     verification_token TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
@@ -97,55 +94,13 @@ db.serialize(() => {
   console.log('✅ Database tables initialized');
 });
 
-// Email sending function - BEZ ZMIAN
+// Email sending function - WYŁĄCZONA TYMCZASOWO
 const sendVerificationEmail = (email, username, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'https://statsbet.pl'}?token=${token}`;
-  
-  const mailOptions = {
-    from: process.env.SMTP_USER,
-    to: email,
-    subject: 'StatsBet Pro - Potwierdź swoje konto',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #2563eb; margin: 0;">📊 StatsBet Pro</h1>
-        </div>
-        
-        <h2 style="color: #2563eb;">Witaj ${username}!</h2>
-        <p style="font-size: 16px; line-height: 1.5;">Dziękujemy za rejestrację w StatsBet Pro - najlepszej aplikacji do śledzenia statystyk bukmacherskich.</p>
-        
-        <p style="font-size: 16px; line-height: 1.5;">Aby aktywować swoje konto i rozpocząć korzystanie z aplikacji, kliknij w poniższy przycisk:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationUrl}" 
-             style="background: #2563eb; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px;">
-            ✅ Potwierdź konto
-          </a>
-        </div>
-        
-        <p style="font-size: 14px; color: #666;">Jeśli przycisk nie działa, skopiuj i wklej ten link do przeglądarki:</p>
-        <p style="word-break: break-all; color: #2563eb; background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 12px;">${verificationUrl}</p>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-          <p style="font-size: 12px; color: #666; margin: 0;">
-            <strong>Ważne:</strong> Link jest ważny przez 24 godziny.<br>
-            Jeśli nie rejestrowałeś się w StatsBet Pro, zignoruj tego emaila.
-          </p>
-        </div>
-      </div>
-    `
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('Błąd wysyłania emaila:', error);
-    } else {
-      console.log('Email weryfikacyjny wysłany do:', email);
-    }
-  });
+  console.log(`📧 Email weryfikacyjny WYŁĄCZONY dla: ${email}`);
+  // Funkcja wyłączona - nie wysyła emaili
+  return;
 };
 
-// RESZTA KODU IDENTYCZNA JAK WCZEŚNIEJ...
 // Auth middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -166,7 +121,7 @@ const authenticateToken = (req, res, next) => {
 
 // === AUTH ROUTES ===
 
-// Register
+// Register - BEZ WERYFIKACJI EMAIL ✅
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -180,11 +135,11 @@ app.post('/api/register', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
+    // ZMIANA: verified = 1 (automatycznie zweryfikowane)
     
     db.run(
-      'INSERT INTO users (username, email, password, verification_token) VALUES (?, ?, ?, ?)',
-      [username, email, hashedPassword, verificationToken],
+      'INSERT INTO users (username, email, password, verified) VALUES (?, ?, ?, ?)',
+      [username, email, hashedPassword, 1], // ✅ AUTOMATYCZNA WERYFIKACJA
       function(err) {
         if (err) {
           if (err.message.includes('UNIQUE constraint failed')) {
@@ -193,13 +148,14 @@ app.post('/api/register', async (req, res) => {
           return res.status(500).json({ error: 'Błąd bazy danych' });
         }
         
-        // Wyślij email weryfikacyjny
-        sendVerificationEmail(email, username, verificationToken);
+        // BEZ WYSYŁANIA EMAILA
+        console.log(`✅ Konto utworzone dla: ${email} (bez weryfikacji)`);
         
         res.json({ 
-          message: 'Konto zostało utworzone! Sprawdź email i kliknij w link weryfikacyjny aby aktywować konto.',
-          emailSent: true,
-          email: email
+          message: 'Konto zostało utworzone pomyślnie! Możesz się teraz zalogować.',
+          emailSent: false,
+          email: email,
+          autoVerified: true
         });
       }
     );
@@ -208,7 +164,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Login
+// Login - BEZ SPRAWDZANIA WERYFIKACJI ✅
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
 
@@ -225,13 +181,13 @@ app.post('/api/login', (req, res) => {
       return res.status(400).json({ error: 'Nieprawidłowe dane logowania' });
     }
 
-    if (!user.verified) {
-      return res.status(400).json({ 
-        error: 'Konto nie zostało zweryfikowane. Sprawdź email i kliknij w link weryfikacyjny.',
-        needsVerification: true,
-        email: user.email
-      });
-    }
+    // USUNIĘTE SPRAWDZENIE WERYFIKACJI ✅
+    // if (!user.verified) {
+    //   return res.status(400).json({ 
+    //     error: 'Konto nie zostało zweryfikowane',
+    //     needsVerification: true
+    //   });
+    // }
 
     try {
       const validPassword = await bcrypt.compare(password, user.password);
@@ -262,59 +218,16 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Verify email
+// Verify email - WYŁĄCZONE
 app.get('/api/verify/:token', (req, res) => {
-  const token = req.params.token;
-  
-  db.run(
-    'UPDATE users SET verified = 1, verification_token = NULL WHERE verification_token = ?',
-    [token],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Błąd weryfikacji' });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(400).json({ error: 'Nieprawidłowy lub wygasły token weryfikacji' });
-      }
-      
-      res.json({ message: 'Email zweryfikowany pomyślnie! Możesz się teraz zalogować.' });
-    }
-  );
+  // Endpoint wyłączony
+  res.json({ message: 'Weryfikacja email wyłączona - wszystkie konta są automatycznie aktywne' });
 });
 
-// Resend verification
+// Resend verification - WYŁĄCZONE
 app.post('/api/resend-verification', (req, res) => {
-  const { email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ error: 'Email jest wymagany' });
-  }
-  
-  db.get('SELECT * FROM users WHERE email = ? AND verified = 0', [email], (err, user) => {
-    if (err) {
-      return res.status(500).json({ error: 'Błąd bazy danych' });
-    }
-    
-    if (!user) {
-      return res.status(400).json({ error: 'Użytkownik nie znaleziony lub konto już zweryfikowane' });
-    }
-    
-    const token = crypto.randomBytes(32).toString('hex');
-    
-    db.run(
-      'UPDATE users SET verification_token = ? WHERE id = ?',
-      [token, user.id],
-      (err) => {
-        if (err) {
-          return res.status(500).json({ error: 'Błąd bazy danych' });
-        }
-        
-        sendVerificationEmail(user.email, user.username, token);
-        res.json({ message: 'Email weryfikacyjny wysłany ponownie' });
-      }
-    );
-  });
+  // Endpoint wyłączony
+  res.json({ message: 'Weryfikacja email wyłączona - wszystkie konta są automatycznie aktywne' });
 });
 
 // === BETS ROUTES ===
@@ -616,8 +529,12 @@ app.delete('/api/saved-stats/:id', authenticateToken, (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'StatsBet API is running with email verification' });
+  res.json({ status: 'OK', message: 'StatsBet API is running WITHOUT email verification' });
 });
 
-// Export for Vercel
-module.exports = app;
+// Start server
+app.listen(PORT, () => {
+  console.log(`StatsBet Backend running on port ${PORT}`);
+  console.log(`API available at: http://localhost:${PORT}/api`);
+  console.log('✅ Email verification DISABLED - automatic account activation');
+});
