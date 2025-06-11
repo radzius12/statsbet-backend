@@ -621,3 +621,5 @@ app.listen(PORT, () => {
   console.log(`API available at: http://localhost:${PORT}/api`);
   console.log('Email verification enabled');
 });
+// Export for Vercel
+module.exports = app;
