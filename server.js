@@ -32,7 +32,7 @@ const transporter = nodemailer.createTransporter({
 });
 
 // Database initialization - POPRAWIONY
-const db = new sqlite3.Database('./statsbet.db');
+const db = new sqlite3.Database(':memory:');
 
 // Create tables - POPRAWIONY (bez duplikatów)
 db.serialize(() => {
@@ -615,11 +615,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'StatsBet API is running with email verification' });
 });
 
-// Start server
+// Start server - DISABLED FOR VERCEL
+/*
 app.listen(PORT, () => {
   console.log(`StatsBet Backend running on port ${PORT}`);
   console.log(`API available at: http://localhost:${PORT}/api`);
   console.log('Email verification enabled');
 });
+*/
+
 // Export for Vercel
 module.exports = app;
