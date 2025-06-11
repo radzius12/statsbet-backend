@@ -17,7 +17,7 @@ app.use(express.json());
 
 // ⭐ JEDYNA ZMIANA - POPRAWIONA LISTA ORIGINS
 app.use(cors({
-  origin: origin: ['http://statsbet.pl', 'https://statsbet.pl', 'http://localhost:8080'],
+  origin: ['http://statsbet.pl', 'https://statsbet.pl', 'http://localhost:8080'],
   credentials: true
 }));
 
