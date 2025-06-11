@@ -127,8 +127,15 @@ export default async function handler(req, res) {
     console.log(`${method} /api/${path}`);
 
     // Health check
-    if (path === 'health') {
-      return res.json({
+if (path === 'health') {
+  return res.json({
+    status: 'OK',
+    message: 'StatsBet API is running WITHOUT email verification',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    database: 'sqlite3'
+  });
+}
         status: 'OK',
         message: 'StatsBet API is running WITHOUT email verification',
         timestamp: new Date().toISOString(),
