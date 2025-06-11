@@ -14,14 +14,35 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 
 // Middleware
 app.use(express.json());
+
+// ✅ POPRAWIONA KONFIGURACJA CORS - DODANO HTTP STATSBET.PL
 app.use(cors({
-  origin: ['https://statsbet.pl', 'http://localhost:8080'],
-  credentials: true
+  origin: [
+    'http://statsbet.pl',        // ⭐ GŁÓWNA POPRAWKA - HTTP
+    'https://statsbet.pl',       // HTTPS dla przyszłości
+    'http://www.statsbet.pl',    // Z www
+    'https://www.statsbet.pl',   // Z www i HTTPS
+    'http://localhost:3000',     // Development
+    'http://localhost:8080',     // Development (jak było wcześniej)
+    'http://127.0.0.1:3000',     // Alternatywny localhost
+    'http://127.0.0.1:8080'      // Alternatywny localhost
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200
 }));
+
 app.use(express.static('public'));
 
 // Email transporter - POPRAWIONY
-const transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransporter({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT || 587,
   secure: false,
@@ -96,7 +117,7 @@ db.serialize(() => {
 
 // Email sending function - POPRAWIONY
 const sendVerificationEmail = (email, username, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'https://statsbet.pl'}?token=${token}`;
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://statsbet.pl'}?token=${token}`;
   
   const mailOptions = {
     from: process.env.SMTP_USER, // POPRAWIONY
@@ -610,9 +631,19 @@ app.delete('/api/saved-stats/:id', authenticateToken, (req, res) => {
   );
 });
 
-// Health check
+// Health check - DODANO INFORMACJĘ O CORS
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'StatsBet API is running with email verification' });
+  res.json({ 
+    status: 'OK', 
+    message: 'StatsBet API is running with email verification',
+    cors: 'enabled for statsbet.pl',
+    allowedOrigins: [
+      'http://statsbet.pl',
+      'https://statsbet.pl',
+      'http://www.statsbet.pl',
+      'https://www.statsbet.pl'
+    ]
+  });
 });
 
 // Start server - DISABLED FOR VERCEL
@@ -621,6 +652,7 @@ app.listen(PORT, () => {
   console.log(`StatsBet Backend running on port ${PORT}`);
   console.log(`API available at: http://localhost:${PORT}/api`);
   console.log('Email verification enabled');
+  console.log('CORS enabled for: http://statsbet.pl, https://statsbet.pl');
 });
 */
 
