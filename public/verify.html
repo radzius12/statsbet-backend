@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatsBet Pro - Weryfikacja Email</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .success-icon {
+            color: #28a745;
+        }
+
+        .error-icon {
+            color: #dc3545;
+        }
+
+        .loading-icon {
+            color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .success-message {
+            color: #28a745;
+        }
+
+        .error-message {
+            color: #dc3545;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .result {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 StatsBet Pro</h1>
+            <p>Weryfikacja adresu email</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="icon loading-icon">⏳</div>
+            <div class="message">Weryfikuję twój email...</div>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" class="result">
+            <div class="icon success-icon">✅</div>
+            <div class="message success-message">
+                <strong>Gratulacje!</strong><br>
+                Twój email został pomyślnie zweryfikowany.<br>
+                Możesz teraz się zalogować i korzystać z pełnej funkcjonalności StatsBet Pro.
+            </div>
+            <a href="index.html" class="btn">Przejdź do logowania</a>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="result">
+            <div class="icon error-icon">❌</div>
+            <div class="message error-message">
+                <strong>Błąd weryfikacji</strong><br>
+                <span id="errorMessage">Link weryfikacyjny jest nieprawidłowy lub wygasł.</span>
+            </div>
+            <a href="index.html" class="btn">Powrót do strony głównej</a>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/api';
+
+        // Show loading state initially
+        document.getElementById('loadingState').style.display = 'block';
+
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (!token) {
+            showError('Brak tokenu weryfikacyjnego w URL');
+        } else {
+            // Verify the token
+            verifyToken(token);
+        }
+
+        async function verifyToken(token) {
+            try {
+                const response = await fetch(`${API_URL}/verify/${token}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess();
+                } else {
+                    showError(data.error || 'Wystąpił błąd podczas weryfikacji');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showError('Nie można połączyć się z serwerem. Sprawdź czy backend działa.');
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('successState').style.display = 'block';
+        }
+
+        function showError(message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorState').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

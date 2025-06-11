@@ -1,0 +1,3768 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatsBet Pro - Statystyki Bukmacherskie</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    
+    <!-- Custom styles -->
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .stat-card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .streak-indicator {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .streak-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .streak-indicator:hover::before {
+            left: 100%;
+        }
+        
+        .profit-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .bet-row {
+            transition: all 0.2s ease;
+        }
+        
+        .bet-row:hover {
+            background-color: #f8fafc;
+            transform: scale(1.002);
+        }
+        
+        .notification-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        
+        .notification-toast.show {
+            transform: translateX(0);
+        }
+        
+        .profit-positive {
+            color: #10b981;
+        }
+        
+        .profit-negative {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100" id="app-body">
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="notification-toast">
+        <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
+            <div class="flex items-center">
+                <div id="toastIcon" class="flex-shrink-0 mr-3">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                </div>
+                <div id="toastMessage" class="text-sm text-gray-800">
+                    Wiadomość
+                </div>
+                <button onclick="hideToast()" class="ml-auto text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Layout -->
+    <div id="authLayout" class="min-h-screen flex items-center justify-center">
+        <div class="glass-effect rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-6">
+                <div class="text-6xl mb-4">📊</div>
+                <h2 id="authTitle" class="text-3xl font-bold text-blue-600 mb-2">Logowanie</h2>
+                <p class="text-gray-600">StatsBet Pro</p>
+            </div>
+
+            <div id="alertContainer" class="mb-4"></div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-envelope text-gray-400"></i>
+                        </div>
+                        <input type="email" id="loginEmail" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Hasło:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </div>
+                        <input type="password" id="loginPassword" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fas fa-sign-in-alt"></i> Zaloguj się
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="space-y-4 hidden">
+                <div>
+                    <label for="registerUsername" class="block text-sm font-medium text-gray-700 mb-1">Nazwa użytkownika:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-user text-gray-400"></i>
+                        </div>
+                        <input type="text" id="registerUsername" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="registerEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-envelope text-gray-400"></i>
+                        </div>
+                        <input type="email" id="registerEmail" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="registerPassword" class="block text-sm font-medium text-gray-700 mb-1">Hasło:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </div>
+                        <input type="password" id="registerPassword" class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required minlength="6">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 px-4 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fas fa-user-plus"></i> Zarejestruj się
+                </button>
+            </form>
+
+            <div class="text-center mt-4">
+                <p id="authSwitchText" class="text-gray-600">
+                    Nie masz konta? 
+                    <a href="javascript:void(0)" onclick="toggleAuthMode()" class="text-blue-600 hover:underline font-medium">Zarejestruj się</a>
+                </p>
+                <button onclick="testBackendConnection()" class="mt-3 text-sm text-blue-600 hover:underline flex items-center gap-1 mx-auto transition-colors">
+                    <i class="fas fa-network-wired"></i> Testuj połączenie z backendem
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Verification Layout -->
+    <div id="verificationLayout" class="min-h-screen flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-md p-8 w-full max-w-md mx-4 text-center">
+            <div id="verificationContent">
+                <div class="text-6xl mb-4 text-blue-600">
+                    <i class="fas fa-spinner animate-spin"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Weryfikacja emaila...</h2>
+                <p class="text-gray-600">Sprawdzamy Twój token weryfikacyjny</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Profile Modal -->
+    <div id="createProfileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 transform transition-all duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-plus-circle text-green-600"></i>
+                    Stwórz nowy profil
+                </h3>
+                <button onclick="closeCreateProfileModal()" class="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="quickCreateProfileForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nazwa profilu *</label>
+                    <input type="text" id="quickProfileName" placeholder="np. Konserwatywny, Agresywny..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kwota początkowa (zł) *</label>
+                        <input type="number" id="quickProfileInitialAmount" min="0" step="0.01" placeholder="1000" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Stawka podatku (%)</label>
+                        <input type="number" id="quickProfileTaxRate" min="0" max="100" step="0.1" value="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ikona profilu</label>
+                    <div class="grid grid-cols-8 gap-2">
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="📊">📊</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="💰">💰</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="🎯">🎯</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="⚽">⚽</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="🏀">🏀</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="🎾">🎾</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="🏈">🏈</button>
+                        <button type="button" class="profile-icon p-2 text-2xl hover:bg-blue-100 rounded transition-colors" data-icon="🔥">🔥</button>
+                    </div>
+                    <input type="hidden" id="quickProfileIcon" value="📊">
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeCreateProfileModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Anuluj
+                    </button>
+                    <button type="submit" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Stwórz
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Profile Modal -->
+    <div id="deleteProfileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-300">
+            <div class="text-center">
+                <div class="text-red-600 text-5xl mb-4">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Usuń profil</h3>
+                <p class="text-gray-600 mb-6">
+                    Czy na pewno chcesz usunąć profil "<span id="deleteProfileName"></span>"?<br>
+                    <strong class="text-blue-600">Raport zostanie zapisany w archiwum.</strong><br>
+                    <strong class="text-red-600">Zakłady zostaną usunięte!</strong>
+                </p>
+                
+                <div class="flex gap-3">
+                    <button onclick="closeDeleteProfileModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Anuluj
+                    </button>
+                    <button onclick="confirmDeleteProfile()" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        <i class="fas fa-trash mr-2"></i>Usuń
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Profile Modal -->
+    <div id="resetProfileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-300">
+            <div class="text-center">
+                <div class="text-yellow-600 text-5xl mb-4">
+                    <i class="fas fa-refresh"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Wyzeruj okres</h3>
+                <p class="text-gray-600 mb-6">
+                    Czy chcesz wyzerować obecny okres dla profilu "<span id="resetProfileName"></span>"?<br>
+                    <strong>Obecne zakłady zostaną zarchiwizowane.</strong>
+                </p>
+                
+                <div class="flex gap-3">
+                    <button onclick="closeResetProfileModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Anuluj
+                    </button>
+                    <button onclick="confirmResetProfile()" class="flex-1 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors">
+                        <i class="fas fa-refresh mr-2"></i>Wyzeruj
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goal Setting Modal -->
+    <div id="goalModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 transform transition-all duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fas fa-target text-blue-600"></i>
+                    Ustaw cel
+                </h3>
+                <button onclick="closeGoalModal()" class="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="goalForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cel miesięczny (zł)</label>
+                    <input type="number" id="monthlyGoal" step="0.01" placeholder="500" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Docelowy yield (%)</label>
+                    <input type="number" id="yieldGoal" step="0.1" placeholder="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeGoalModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Anuluj
+                    </button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-save mr-2"></i>Zapisz
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Layout -->
+    <div id="appLayout" class="hidden">
+        <!-- Header -->
+        <header class="gradient-bg text-white shadow-2xl">
+            <div class="container mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-4xl font-bold flex items-center gap-3">
+                            <i class="fas fa-chart-bar"></i>
+                            StatsBet Pro
+                            <span class="text-sm bg-white bg-opacity-20 px-2 py-1 rounded-full">v2.0</span>
+                        </h1>
+                        <p class="text-blue-100 mt-2">Profesjonalne statystyki bukmacherskie</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="welcomeText" class="text-blue-100">Witaj, <strong id="usernameDisplay"></strong>!</span>
+                        <button onclick="logout()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 backdrop-blur-sm">
+                            <i class="fas fa-sign-out-alt"></i> Wyloguj
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <div class="bg-white shadow-lg">
+            <div class="container mx-auto px-4">
+                <nav class="flex">
+                    <button id="dashboardTab" onclick="switchTab('dashboard')" class="flex-1 px-6 py-4 text-center font-medium bg-blue-600 text-white transition-all duration-300">
+                        <i class="fas fa-chart-bar mr-2"></i> Dashboard
+                    </button>
+                    <button id="addBetTab" onclick="switchTab('addBet')" class="flex-1 px-6 py-4 text-center font-medium text-gray-600 hover:bg-gray-50 transition-all duration-300">
+                        <i class="fas fa-plus mr-2"></i> Dodaj zakład
+                    </button>
+                    <button id="historyTab" onclick="switchTab('history')" class="flex-1 px-6 py-4 text-center font-medium text-gray-600 hover:bg-gray-50 transition-all duration-300">
+                        <i class="fas fa-calendar mr-2"></i> Historia
+                    </button>
+                    <button id="analyticsTab" onclick="switchTab('analytics')" class="flex-1 px-6 py-4 text-center font-medium text-gray-600 hover:bg-gray-50 transition-all duration-300">
+                        <i class="fas fa-chart-pie mr-2"></i> Analityka
+                    </button>
+                    <button id="settingsTab" onclick="switchTab('settings')" class="flex-1 px-6 py-4 text-center font-medium text-gray-600 hover:bg-gray-50 transition-all duration-300">
+                        <i class="fas fa-cog mr-2"></i> Ustawienia
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="container mx-auto px-4 py-6">
+            <!-- Dashboard Tab -->
+            <div id="dashboardContent" class="tab-content">
+                <!-- Profile Selection -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6 stat-card-hover">
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                <i class="fas fa-user-circle text-blue-600"></i>
+                                Aktywny profil
+                            </h3>
+                            <div class="flex items-center gap-4">
+                                <select id="profileSelect" onchange="switchProfile(this.value)" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 min-w-48 transition-all duration-300">
+                                    <!-- Profiles will be populated here -->
+                                </select>
+                                <div id="profileInfo" class="text-sm text-gray-600">
+                                    <!-- Profile info will be shown here -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openGoalModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all duration-300 flex items-center gap-2">
+                                <i class="fas fa-target"></i> Cel
+                            </button>
+                            <button onclick="openCreateProfileModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nowy profil
+                            </button>
+                            <button onclick="duplicateCurrentProfile()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2" title="Duplikuj aktywny profil">
+                                <i class="fas fa-copy"></i> Duplikuj
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Goals Progress -->
+                <div id="goalsSection" class="mb-6 hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl shadow-lg p-6 stat-card-hover">
+                            <h4 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                                <i class="fas fa-calendar-check text-green-600"></i>
+                                Cel miesięczny
+                            </h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span>Postęp</span>
+                                    <span id="monthlyProgress">0 / 500 zł</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div id="monthlyProgressBar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-lg p-6 stat-card-hover">
+                            <h4 class="text-lg font-semibold mb-3 flex items-center gap-2">
+                                <i class="fas fa-percentage text-blue-600"></i>
+                                Cel yield
+                            </h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span>Aktualny yield</span>
+                                    <span id="yieldProgress">0% / 5%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div id="yieldProgressBar" class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 mb-6">
+                    <div class="bg-gradient-to-r from-blue-400 to-blue-600 p-6 rounded-xl shadow-lg text-white stat-card-hover">
+                        <h3 class="text-sm font-medium opacity-90">Kwota początkowa</h3>
+                        <div id="initialAmountDisplay" class="text-2xl font-bold">1000 zł</div>
+                        <div class="text-xs opacity-75 mt-1">Startowy bankroll</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-r from-green-400 to-green-600 p-6 rounded-xl shadow-lg text-white stat-card-hover">
+                        <h3 class="text-sm font-medium opacity-90">Stan konta</h3>
+                        <div id="currentAmount" class="text-2xl font-bold">0 zł</div>
+                        <div class="text-xs opacity-75 mt-1">Obecny bankroll</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 stat-card-hover">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-coins"></i>
+                            Suma stawek
+                        </h3>
+                        <div id="totalStake" class="text-2xl font-bold text-gray-800">0 zł</div>
+                        <div class="text-xs text-gray-500 mt-1">Łączne obroty</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-purple-500 stat-card-hover">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i>
+                            Zysk/Strata
+                        </h3>
+                        <div id="profit" class="text-2xl font-bold text-gray-800">0 zł</div>
+                        <div class="text-xs text-gray-500 mt-1">Netto rezultat</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500 stat-card-hover">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-percentage"></i>
+                            Yield
+                        </h3>
+                        <div id="yieldPercentage" class="text-2xl font-bold text-gray-800">0%</div>
+                        <div class="text-xs text-gray-500 mt-1">Rentowność</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500 stat-card-hover">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-bullseye"></i>
+                            Skuteczność
+                        </h3>
+                        <div id="winRate" class="text-2xl font-bold text-gray-800">0%</div>
+                        <div class="text-xs text-gray-500 mt-1">Trafione zakłady</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500 stat-card-hover">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-list-ol"></i>
+                            Liczba zakładów
+                        </h3>
+                        <div id="totalBets" class="text-2xl font-bold text-gray-800">0</div>
+                        <div class="text-xs text-gray-500 mt-1">Łącznie typów</div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500 stat-card-hover streak-indicator">
+                        <h3 class="text-sm text-gray-600 flex items-center gap-2">
+                            <i class="fas fa-fire"></i>
+                            Seria
+                        </h3>
+                        <div id="currentStreakDisplay" class="text-2xl font-bold text-gray-800">0</div>
+                        <div class="text-xs text-gray-500 mt-1">Aktualna passa</div>
+                    </div>
+                </div>
+
+                <!-- Recent Bets -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+                        <h2 class="text-xl font-semibold flex items-center gap-2">
+                            <i class="fas fa-clock text-blue-600"></i>
+                            Ostatnie zakłady
+                        </h2>
+                        <button onclick="refreshStats()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all duration-300">
+                            <i class="fas fa-sync-alt mr-2"></i> Odśwież
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="recentBetsTable">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Data</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Typ</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Rodzaj</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Kurs</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Stawka</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Potencjalna wygrana</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Wynik</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentBetsBody" class="divide-y divide-gray-200">
+                                <!-- Bets will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Bet Tab -->
+            <div id="addBetContent" class="tab-content hidden">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-plus text-green-600"></i>
+                        Dodaj nowy zakład
+                        <span class="text-sm font-normal text-gray-500 ml-2">
+                            (Profil: <span id="addBetProfileName" class="font-medium text-blue-600">Główny</span>)
+                        </span>
+                    </h2>
+                    
+                    <div id="allProfilesWarning" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                        <div class="flex items-center gap-2 text-yellow-800">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Aby dodać zakład, wybierz konkretny profil z listy w Dashboardzie.</span>
+                        </div>
+                    </div>
+                    
+                    <form id="betForm" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Data zakładu</label>
+                            <input type="date" id="betDate" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Typ zakładu</label>
+                            <select id="betType" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">Wybierz...</option>
+                                <option value="SINGLE">SINGLE</option>
+                                <option value="AKO">AKO</option>
+                                <option value="SYSTEM">SYSTEM</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rodzaj zakładu</label>
+                            <select id="betCategory" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">Wybierz...</option>
+                                <option value="PRE-MATCH">PRE-MATCH</option>
+                                <option value="LIVE">LIVE</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kurs</label>
+                            <input type="number" id="betOdds" step="0.01" min="1" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="np. 2.15">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stawka (zł)</label>
+                            <input type="number" id="betStake" step="0.01" min="0" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="np. 50.00">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Potencjalna wygrana</label>
+                            <input type="text" id="betPotentialWin" readonly class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 transition-all duration-300" placeholder="Automatycznie obliczane">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Wynik</label>
+                            <select id="betResult" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">W trakcie...</option>
+                                <option value="WYGRANA">WYGRANA</option>
+                                <option value="PRZEGRANA">PRZEGRANA</option>
+                                <option value="ZWROT">ZWROT</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Sport/Liga (opcjonalne)</label>
+                            <input type="text" id="betSport" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="np. Ekstraklasa, NBA">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Notatka (opcjonalna)</label>
+                            <input type="text" id="betNote" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="Notatka do zakładu">
+                        </div>
+                        
+                        <div class="md:col-span-2 xl:col-span-3">
+                            <button type="submit" id="addBetButton" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2 shadow-lg">
+                                <i class="fas fa-plus"></i>
+                                Dodaj zakład
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div id="historyContent" class="tab-content hidden">
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <i class="fas fa-filter text-blue-600"></i>
+                        Filtrowanie zakładów
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data od</label>
+                            <input type="date" id="filterDateFrom" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data do</label>
+                            <input type="date" id="filterDateTo" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                            <select id="filterType" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">Wszystkie</option>
+                                <option value="SINGLE">SINGLE</option>
+                                <option value="AKO">AKO</option>
+                                <option value="SYSTEM">SYSTEM</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Rodzaj</label>
+                            <select id="filterCategory" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">Wszystkie</option>
+                                <option value="PRE-MATCH">PRE-MATCH</option>
+                                <option value="LIVE">LIVE</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Wynik</label>
+                            <select id="filterResult" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="">Wszystkie</option>
+                                <option value="WYGRANA">WYGRANA</option>
+                                <option value="PRZEGRANA">PRZEGRANA</option>
+                                <option value="ZWROT">ZWROT</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="applyFilters()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all duration-300">
+                        <i class="fas fa-filter mr-2"></i> Zastosuj filtry
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b bg-gray-50">
+                        <h2 class="text-xl font-semibold flex items-center gap-2">
+                            <i class="fas fa-history text-blue-600"></i>
+                            Historia wszystkich zakładów
+                        </h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="historyTable">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Data</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Typ</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Rodzaj</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Kurs</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Stawka</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Potencjalna wygrana</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Wynik</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="divide-y divide-gray-200">
+                                <!-- History will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="analyticsContent" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Profit Chart -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-chart-line text-green-600"></i>
+                            Wykres zysku/straty
+                        </h3>
+                        <canvas id="profitChart" height="200"></canvas>
+                    </div>
+
+                    <!-- Bet Types Distribution -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-chart-pie text-blue-600"></i>
+                            Rozkład typów zakładów
+                        </h3>
+                        <canvas id="betTypesChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Monthly Stats -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-calendar-alt text-purple-600"></i>
+                            Statystyki miesięczne
+                        </h3>
+                        <div id="monthlyStats" class="space-y-3">
+                            <!-- Monthly stats will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Best/Worst Streaks -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-fire text-orange-600"></i>
+                            Rekordowe serie
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Najlepsza seria:</span>
+                                <span id="bestStreak" class="font-bold text-green-600">0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Najgorsza seria:</span>
+                                <span id="worstStreak" class="font-bold text-red-600">0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Obecna seria:</span>
+                                <span id="analyticsCurrentStreak" class="font-bold">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Win Rate by Odds -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-percentage text-indigo-600"></i>
+                            Skuteczność wg kursów
+                        </h3>
+                        <div id="oddsAnalysis" class="space-y-3">
+                            <!-- Odds analysis will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settingsContent" class="tab-content hidden">
+                <!-- Profile Management Section -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-users text-blue-600"></i>
+                        Zarządzanie profilami
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Current Profiles List -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Twoje profile</h3>
+                            <div id="profilesList" class="space-y-3">
+                                <!-- Profiles list will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Szybkie akcje</h3>
+                            <div class="space-y-3">
+                                <button onclick="openCreateProfileModal()" class="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2">
+                                    <i class="fas fa-plus"></i> Stwórz nowy profil
+                                </button>
+                                <button onclick="duplicateCurrentProfile()" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2">
+                                    <i class="fas fa-copy"></i> Duplikuj aktywny profil
+                                </button>
+                                <button onclick="exportProfiles()" class="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-all duration-300 flex items-center gap-2">
+                                    <i class="fas fa-download"></i> Eksportuj profile
+                                </button>
+                                <button onclick="importProfiles()" class="w-full bg-orange-600 text-white px-4 py-3 rounded-lg hover:bg-orange-700 transition-all duration-300 flex items-center gap-2">
+                                    <i class="fas fa-upload"></i> Importuj profile
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Archived Reports Section -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-archive text-purple-600"></i>
+                        Archiwum raportów
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <p class="text-gray-600 text-sm">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Tutaj znajdziesz raporty z usuniętych profili. Raporty są automatycznie generowane przed usunięciem profilu.
+                        </p>
+                    </div>
+                    
+                    <div id="archivedReportsList" class="space-y-4">
+                        <!-- Archived reports will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Current Profile Settings -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-cog text-blue-600"></i>
+                        Ustawienia profilu: <span id="currentProfileName" class="text-blue-600">Główny</span>
+                    </h2>
+                    
+                    <div id="profileLocked" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                        <div class="flex items-center gap-2 text-yellow-800">
+                            <i class="fas fa-lock"></i>
+                            <span>Ten profil jest zablokowany. Aby edytować, musisz zakończyć obecny okres.</span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Nazwa profilu
+                            </label>
+                            <input type="text" id="profileNameEdit" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300" placeholder="Nazwa profilu">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Kwota początkowa (zł)
+                            </label>
+                            <input type="number" id="initialAmount" min="0" step="0.01" value="1000" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            <p class="text-sm text-gray-500 mt-1">
+                                Kwota z jaką rozpoczynasz typowanie
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Stawka podatku (%)
+                            </label>
+                            <input type="number" id="taxRate" min="0" max="100" step="0.1" value="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                            <p class="text-sm text-gray-500 mt-1">
+                                Podatek od gier naliczany od wygranych
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Typ stawkowania
+                            </label>
+                            <select id="stakingType" onchange="toggleStakingInputs()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                                <option value="fixed">Stała kwota</option>
+                                <option value="percentage">Procent bankrolla</option>
+                            </select>
+                        </div>
+                        
+                        <div id="fixedStakeDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Stała stawka (zł)
+                            </label>
+                            <input type="number" id="fixedStake" min="0" step="0.01" placeholder="50" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                        </div>
+                        
+                        <div id="percentageStakeDiv" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Procent bankrolla (%)
+                            </label>
+                            <input type="number" id="percentageStake" min="0.1" max="50" step="0.1" value="2" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 mt-6">
+                        <button onclick="saveCurrentProfile()" id="saveProfileBtn" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300">
+                            <i class="fas fa-save mr-2"></i> Zapisz zmiany
+                        </button>
+                        <button onclick="openResetProfileModal()" class="bg-yellow-600 text-white px-6 py-3 rounded-lg hover:bg-yellow-700 transition-all duration-300">
+                            <i class="fas fa-refresh mr-2"></i> Wyzeruj okres
+                        </button>
+                        <button onclick="openDeleteProfileModal()" id="deleteProfileBtn" class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all duration-300">
+                            <i class="fas fa-trash mr-2"></i> Usuń profil
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚀 StatsBet Pro v2.0 starting...');
+        
+        // Configuration
+        const API_BASE = 'http://localhost:3000/api';
+        const DEMO_MODE = false;
+        
+        console.log('📊 Initializing variables...');
+        
+        // Global variables
+        let currentUser = null;
+        let authToken = null;
+        let bets = [];
+        let editingBetId = null;
+        let currentProfile = 'default';
+        let charts = {};
+        let archivedReports = [];
+        let profiles = {
+            'default': {
+                id: 'default',
+                name: 'Główny',
+                icon: '📊',
+                initialAmount: 1000,
+                taxRate: 12,
+                stakingType: 'fixed',
+                stakingAmount: 50,
+                stakingPercentage: 2,
+                locked: false,
+                goals: {
+                    monthly: 500,
+                    yield: 5
+                },
+                createdAt: new Date().toISOString(),
+                periods: [{
+                    id: 1,
+                    startDate: new Date().toISOString(),
+                    endDate: null,
+                    isActive: true
+                }]
+            }
+        };
+
+        // Theme Management
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            const body = document.getElementById('app-body');
+            const themeIcon = document.querySelector('#themeToggle i');
+            
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+                themeIcon.className = 'fas fa-sun text-yellow-500';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.remove('dark-mode');
+                themeIcon.className = 'fas fa-moon text-gray-600';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // Notification System
+        function showToast(type, message, duration = 5000) {
+            const toast = document.getElementById('notificationToast');
+            const icon = document.getElementById('toastIcon');
+            const messageEl = document.getElementById('toastMessage');
+            
+            const icons = {
+                success: 'fas fa-check-circle text-green-500',
+                error: 'fas fa-times-circle text-red-500',
+                warning: 'fas fa-exclamation-triangle text-yellow-500',
+                info: 'fas fa-info-circle text-blue-500'
+            };
+            
+            icon.innerHTML = `<i class="${icons[type]}"></i>`;
+            messageEl.textContent = message;
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                hideToast();
+            }, duration);
+        }
+
+        function hideToast() {
+            document.getElementById('notificationToast').classList.remove('show');
+        }
+
+        // Enhanced Profile Management
+        function openGoalModal() {
+            const profile = profiles[currentProfile];
+            if (profile && profile.goals) {
+                document.getElementById('monthlyGoal').value = profile.goals.monthly || '';
+                document.getElementById('yieldGoal').value = profile.goals.yield || '';
+            }
+            document.getElementById('goalModal').classList.remove('hidden');
+        }
+
+        function closeGoalModal() {
+            document.getElementById('goalModal').classList.add('hidden');
+        }
+
+        function saveGoals() {
+            const monthlyGoal = parseFloat(document.getElementById('monthlyGoal').value) || 0;
+            const yieldGoal = parseFloat(document.getElementById('yieldGoal').value) || 0;
+            
+            if (profiles[currentProfile]) {
+                if (!profiles[currentProfile].goals) {
+                    profiles[currentProfile].goals = {};
+                }
+                profiles[currentProfile].goals.monthly = monthlyGoal;
+                profiles[currentProfile].goals.yield = yieldGoal;
+                
+                saveProfiles();
+                updateGoalsDisplay();
+                showToast('success', 'Cele zostały zapisane!');
+                closeGoalModal();
+            }
+        }
+
+        function updateGoalsDisplay() {
+            const profile = profiles[currentProfile];
+            const goalsSection = document.getElementById('goalsSection');
+            
+            if (!profile || !profile.goals || currentProfile === 'ALL') {
+                goalsSection.classList.add('hidden');
+                return;
+            }
+
+            const monthlyGoal = profile.goals.monthly || 0;
+            const yieldGoal = profile.goals.yield || 0;
+
+            if (monthlyGoal > 0 || yieldGoal > 0) {
+                goalsSection.classList.remove('hidden');
+                
+                // Update monthly progress
+                if (monthlyGoal > 0) {
+                    const currentProfit = parseFloat(document.getElementById('profit').textContent.replace(' zł', '')) || 0;
+                    const monthlyProgress = Math.min((currentProfit / monthlyGoal) * 100, 100);
+                    
+                    document.getElementById('monthlyProgress').textContent = `${currentProfit.toFixed(2)} / ${monthlyGoal} zł`;
+                    document.getElementById('monthlyProgressBar').style.width = `${monthlyProgress}%`;
+                }
+                
+                // Update yield progress - using displayed yield value (already in %)
+                if (yieldGoal > 0) {
+                    const currentYieldText = document.getElementById('yieldPercentage').textContent.replace('%', '');
+                    const currentYield = parseFloat(currentYieldText) || 0;
+                    const yieldProgress = Math.min((Math.abs(currentYield) / yieldGoal) * 100, 100);
+                    
+                    document.getElementById('yieldProgress').textContent = `${currentYield.toFixed(2)}% / ${yieldGoal}%`;
+                    document.getElementById('yieldProgressBar').style.width = `${yieldProgress}%`;
+                }
+            } else {
+                goalsSection.classList.add('hidden');
+            }
+        }
+
+        // Enhanced Analytics
+        function updateAnalytics() {
+            updateProfitChart();
+            updateBetTypesChart();
+            updateMonthlyStats();
+            updateStreakAnalysis();
+            updateOddsAnalysis();
+        }
+
+        function updateProfitChart() {
+            const ctx = document.getElementById('profitChart');
+            if (!ctx) return;
+
+            if (charts.profit) {
+                charts.profit.destroy();
+            }
+
+            const profitData = calculateProfitOverTime();
+            
+            charts.profit = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: profitData.labels,
+                    datasets: [{
+                        label: 'Zysk/Strata (zł)',
+                        data: profitData.values,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateBetTypesChart() {
+            const ctx = document.getElementById('betTypesChart');
+            if (!ctx) return;
+
+            if (charts.betTypes) {
+                charts.betTypes.destroy();
+            }
+
+            const typeData = calculateBetTypesDistribution();
+            
+            charts.betTypes = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: typeData.labels,
+                    datasets: [{
+                        data: typeData.values,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function calculateProfitOverTime() {
+            const filteredBets = getFilteredBets();
+            const sortedBets = filteredBets.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            let runningProfit = 0;
+            const labels = [];
+            const values = [];
+            
+            sortedBets.forEach(bet => {
+                if (bet.result === 'WYGRANA') {
+                    runningProfit += parseFloat(bet.potentialWin || bet.potential_win || 0) - parseFloat(bet.stake || 0);
+                } else if (bet.result === 'PRZEGRANA') {
+                    runningProfit -= parseFloat(bet.stake || 0);
+                }
+                
+                labels.push(new Date(bet.date).toLocaleDateString());
+                values.push(runningProfit);
+            });
+            
+            return { labels, values };
+        }
+
+        function calculateBetTypesDistribution() {
+            const filteredBets = getFilteredBets();
+            const distribution = {};
+            
+            filteredBets.forEach(bet => {
+                const type = bet.betType || bet.bet_type || 'SINGLE';
+                distribution[type] = (distribution[type] || 0) + 1;
+            });
+            
+            return {
+                labels: Object.keys(distribution),
+                values: Object.values(distribution)
+            };
+        }
+
+        function updateMonthlyStats() {
+            const container = document.getElementById('monthlyStats');
+            if (!container) return;
+
+            const monthlyData = calculateMonthlyStats();
+            container.innerHTML = '';
+            
+            Object.keys(monthlyData).forEach(month => {
+                const stats = monthlyData[month];
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg';
+                div.innerHTML = `
+                    <span class="font-medium">${month}</span>
+                    <span class="${stats.profit >= 0 ? 'text-green-600' : 'text-red-600'} font-bold">
+                        ${stats.profit.toFixed(2)} zł
+                    </span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function calculateMonthlyStats() {
+            const filteredBets = getFilteredBets();
+            const monthly = {};
+            
+            filteredBets.forEach(bet => {
+                const date = new Date(bet.date);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                if (!monthly[monthKey]) {
+                    monthly[monthKey] = { profit: 0, bets: 0 };
+                }
+                
+                monthly[monthKey].bets++;
+                
+                if (bet.result === 'WYGRANA') {
+                    monthly[monthKey].profit += parseFloat(bet.potentialWin || bet.potential_win || 0) - parseFloat(bet.stake || 0);
+                } else if (bet.result === 'PRZEGRANA') {
+                    monthly[monthKey].profit -= parseFloat(bet.stake || 0);
+                }
+            });
+            
+            return monthly;
+        }
+
+        function updateStreakAnalysis() {
+            const filteredBets = getFilteredBets();
+            const streaks = calculateStreaks(filteredBets);
+            
+            document.getElementById('bestStreak').textContent = streaks.best;
+            document.getElementById('worstStreak').textContent = streaks.worst;
+            document.getElementById('analyticsCurrentStreak').textContent = streaks.current;
+        }
+
+        function calculateStreaks(bets) {
+            const sortedBets = bets.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            let currentStreak = 0;
+            let bestStreak = 0;
+            let worstStreak = 0;
+            let tempStreak = 0;
+            
+            sortedBets.forEach(bet => {
+                if (bet.result === 'WYGRANA') {
+                    tempStreak = tempStreak > 0 ? tempStreak + 1 : 1;
+                    currentStreak = tempStreak;
+                } else if (bet.result === 'PRZEGRANA') {
+                    tempStreak = tempStreak < 0 ? tempStreak - 1 : -1;
+                    currentStreak = tempStreak;
+                } else {
+                    // ZWROT doesn't break streak
+                    return;
+                }
+                
+                if (tempStreak > bestStreak) bestStreak = tempStreak;
+                if (tempStreak < worstStreak) worstStreak = tempStreak;
+            });
+            
+            return { current: currentStreak, best: bestStreak, worst: Math.abs(worstStreak) };
+        }
+
+        function updateOddsAnalysis() {
+            const container = document.getElementById('oddsAnalysis');
+            if (!container) return;
+
+            const analysis = calculateOddsAnalysis();
+            container.innerHTML = '';
+            
+            analysis.forEach(range => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `
+                    <span class="text-sm">${range.label}</span>
+                    <span class="font-bold ${range.winRate >= 50 ? 'text-green-600' : 'text-red-600'}">
+                        ${range.winRate.toFixed(1)}%
+                    </span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function calculateOddsAnalysis() {
+            const filteredBets = getFilteredBets().filter(bet => bet.result && bet.result !== '');
+            
+            const ranges = [
+                { min: 1, max: 1.5, label: '1.0 - 1.5' },
+                { min: 1.5, max: 2, label: '1.5 - 2.0' },
+                { min: 2, max: 3, label: '2.0 - 3.0' },
+                { min: 3, max: 5, label: '3.0 - 5.0' },
+                { min: 5, max: 999, label: '5.0+' }
+            ];
+            
+            return ranges.map(range => {
+                const betsInRange = filteredBets.filter(bet => {
+                    const odds = parseFloat(bet.odds);
+                    return odds >= range.min && odds < range.max;
+                });
+                
+                const wins = betsInRange.filter(bet => bet.result === 'WYGRANA').length;
+                const winRate = betsInRange.length > 0 ? (wins / betsInRange.length) * 100 : 0;
+                
+                return { ...range, winRate, total: betsInRange.length };
+            }).filter(range => range.total > 0);
+        }
+
+        // Enhanced Data Export
+        function exportData() {
+            const filteredBets = getFilteredBets();
+            const csvContent = generateCSV(filteredBets);
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `statsbet_export_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+            showToast('success', 'Dane zostały wyeksportowane!');
+        }
+
+        function generateCSV(bets) {
+            const headers = ['Data', 'Typ', 'Rodzaj', 'Kurs', 'Stawka', 'Potencjalna wygrana', 'Wynik', 'Sport', 'Notatka'];
+            const rows = bets.map(bet => [
+                bet.date,
+                bet.betType || bet.bet_type || '',
+                bet.betCategory || bet.bet_category || '',
+                bet.odds || '',
+                bet.stake || '',
+                bet.potentialWin || bet.potential_win || '',
+                bet.result || '',
+                bet.sport || '',
+                bet.note || ''
+            ]);
+            
+            return [headers, ...rows].map(row => 
+                row.map(field => `"${field}"`).join(',')
+            ).join('\n');
+        }
+
+        // Archived Reports Management
+        function generateProfileReport(profileId) {
+            const profile = profiles[profileId];
+            if (!profile) return null;
+
+            const profileBets = bets.filter(bet => {
+                const hasValidProfileId = bet.profile_id && 
+                                         bet.profile_id !== 'undefined' && 
+                                         bet.profile_id !== undefined && 
+                                         bet.profile_id !== null;
+                
+                if (hasValidProfileId) {
+                    return bet.profile_id === profileId;
+                } else {
+                    return profileId === 'default';
+                }
+            });
+
+            // Calculate detailed statistics
+            const completedBets = profileBets.filter(bet => bet.result && bet.result !== '');
+            const wonBets = completedBets.filter(bet => bet.result === 'WYGRANA');
+            const lostBets = completedBets.filter(bet => bet.result === 'PRZEGRANA');
+            const returnedBets = completedBets.filter(bet => bet.result === 'ZWROT');
+
+            const totalStake = profileBets.reduce((sum, bet) => sum + parseFloat(bet.stake || 0), 0);
+            
+            // Calculate net profit (corrected)
+            let totalNetProfit = 0;
+            profileBets.forEach(bet => {
+                if (bet.result === 'WYGRANA') {
+                    const winAmount = parseFloat(bet.potentialWin || bet.potential_win || 0);
+                    const stakeAmount = parseFloat(bet.stake || 0);
+                    totalNetProfit += (winAmount - stakeAmount); // Net profit
+                } else if (bet.result === 'PRZEGRANA') {
+                    totalNetProfit -= parseFloat(bet.stake || 0);
+                }
+                // ZWROT doesn't affect profit
+            });
+
+            // Correct Yield calculation: (net_profit / total_stakes) * 100%
+            const yieldPercentage = totalStake > 0 ? (totalNetProfit / totalStake) * 100 : 0;
+
+            const winRate = completedBets.length > 0 ? (wonBets.length / completedBets.length) * 100 : 0;
+            const currentBalance = profile.initialAmount + totalNetProfit;
+
+            // Calculate streaks
+            const streaks = calculateStreaks(completedBets);
+
+            // Monthly breakdown
+            const monthlyStats = calculateMonthlyStats();
+
+            // Bet types distribution
+            const typesDistribution = calculateBetTypesDistribution();
+
+            // Odds analysis
+            const oddsAnalysis = calculateOddsAnalysis();
+
+            const report = {
+                id: 'report_' + Date.now(),
+                profileId: profileId,
+                profileName: profile.name,
+                profileIcon: profile.icon,
+                generatedAt: new Date().toISOString(),
+                period: {
+                    start: profile.periods?.[0]?.startDate || profile.createdAt,
+                    end: new Date().toISOString()
+                },
+                
+                // Basic stats
+                stats: {
+                    initialAmount: profile.initialAmount,
+                    currentBalance: currentBalance,
+                    totalBets: profileBets.length,
+                    completedBets: completedBets.length,
+                    totalStake: totalStake,
+                    netProfit: totalNetProfit,
+                    yieldPercentage: yieldPercentage,
+                    winRate: winRate,
+                    
+                    // Results breakdown
+                    wonBets: wonBets.length,
+                    lostBets: lostBets.length,
+                    returnedBets: returnedBets.length,
+                    
+                    // Streaks
+                    bestStreak: streaks.best,
+                    worstStreak: streaks.worst,
+                    finalStreak: streaks.current
+                },
+                
+                // All bets data
+                allBets: profileBets.map(bet => ({
+                    id: bet.id,
+                    date: bet.date,
+                    type: bet.betType || bet.bet_type,
+                    category: bet.betCategory || bet.bet_category,
+                    odds: bet.odds,
+                    stake: bet.stake,
+                    potentialWin: bet.potentialWin || bet.potential_win,
+                    result: bet.result,
+                    sport: bet.sport,
+                    note: bet.note
+                })),
+                
+                // Analytics data
+                analytics: {
+                    monthlyStats: monthlyStats,
+                    typesDistribution: typesDistribution,
+                    oddsAnalysis: oddsAnalysis
+                },
+                
+                // Profile settings snapshot
+                profileSettings: {
+                    taxRate: profile.taxRate,
+                    stakingType: profile.stakingType,
+                    stakingAmount: profile.stakingAmount,
+                    stakingPercentage: profile.stakingPercentage,
+                    goals: profile.goals
+                }
+            };
+
+            return report;
+        }
+
+        function saveReportToArchive(report) {
+            if (!report) return false;
+
+            try {
+                archivedReports.push(report);
+                localStorage.setItem('archivedReports', JSON.stringify(archivedReports));
+                return true;
+            } catch (error) {
+                console.error('Error saving report to archive:', error);
+                return false;
+            }
+        }
+
+        function loadArchivedReports() {
+            try {
+                const saved = localStorage.getItem('archivedReports');
+                if (saved) {
+                    archivedReports = JSON.parse(saved);
+                } else {
+                    archivedReports = [];
+                }
+            } catch (error) {
+                console.error('Error loading archived reports:', error);
+                archivedReports = [];
+            }
+        }
+
+        function displayArchivedReports() {
+            const container = document.getElementById('archivedReportsList');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (archivedReports.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-archive text-4xl mb-2 opacity-50"></i>
+                        <p>Brak zarchiwizowanych raportów</p>
+                    </div>
+                `;
+                return;
+            }
+
+            archivedReports.reverse().forEach(report => {
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-300';
+                
+                const periodStart = new Date(report.period.start).toLocaleDateString();
+                const periodEnd = new Date(report.period.end).toLocaleDateString();
+                const generatedAt = new Date(report.generatedAt).toLocaleDateString();
+
+                const profitClass = report.stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600';
+                const yieldClass = report.stats.yieldPercentage >= 0 ? 'text-green-600' : 'text-red-600';
+
+                reportDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-semibold flex items-center gap-2">
+                                <span class="text-2xl">${report.profileIcon}</span>
+                                ${report.profileName}
+                            </h4>
+                            <p class="text-sm text-gray-600">Okres: ${periodStart} - ${periodEnd}</p>
+                            <p class="text-xs text-gray-500">Wygenerowany: ${generatedAt}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm ${profitClass} font-semibold">${report.stats.netProfit.toFixed(2)} zł</p>
+                            <p class="text-xs ${yieldClass}">Yield: ${report.stats.yieldPercentage.toFixed(2)}%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+                        <div class="text-center">
+                            <p class="font-medium">${report.stats.totalBets}</p>
+                            <p class="text-gray-500">Zakłady</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="font-medium">${report.stats.winRate.toFixed(1)}%</p>
+                            <p class="text-gray-500">Skuteczność</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="font-medium">${report.stats.totalStake.toFixed(2)} zł</p>
+                            <p class="text-gray-500">Stawki</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="font-medium">${report.stats.bestStreak}</p>
+                            <p class="text-gray-500">Najlepsza seria</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="viewReportDetails('${report.id}')" class="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors">
+                            <i class="fas fa-eye mr-1"></i> Podgląd
+                        </button>
+                        <button onclick="exportReport('${report.id}')" class="flex-1 bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors">
+                            <i class="fas fa-download mr-1"></i> Eksport
+                        </button>
+                        <button onclick="deleteReport('${report.id}')" class="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(reportDiv);
+            });
+        }
+
+        function viewReportDetails(reportId) {
+            const report = archivedReports.find(r => r.id === reportId);
+            if (!report) return;
+
+            // Create detailed report modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-screen overflow-y-auto">
+                    <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                        <h3 class="text-xl font-bold flex items-center gap-2">
+                            <span class="text-2xl">${report.profileIcon}</span>
+                            Raport: ${report.profileName}
+                        </h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700 p-2">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="p-6">
+                        <!-- Summary Stats -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                <p class="text-2xl font-bold text-blue-600">${report.stats.totalBets}</p>
+                                <p class="text-sm text-gray-600">Łączne zakłady</p>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-lg">
+                                <p class="text-2xl font-bold ${report.stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}">${report.stats.netProfit.toFixed(2)} zł</p>
+                                <p class="text-sm text-gray-600">Zysk netto</p>
+                            </div>
+                            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                                <p class="text-2xl font-bold ${report.stats.yieldPercentage >= 0 ? 'text-green-600' : 'text-red-600'}">${report.stats.yieldPercentage.toFixed(2)}%</p>
+                                <p class="text-sm text-gray-600">Yield</p>
+                            </div>
+                            <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                                <p class="text-2xl font-bold text-gray-800">${report.stats.winRate.toFixed(1)}%</p>
+                                <p class="text-sm text-gray-600">Skuteczność</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Period and Settings -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-semibold mb-2">Informacje o okresie</h4>
+                                <p class="text-sm"><strong>Start:</strong> ${new Date(report.period.start).toLocaleDateString()}</p>
+                                <p class="text-sm"><strong>Koniec:</strong> ${new Date(report.period.end).toLocaleDateString()}</p>
+                                <p class="text-sm"><strong>Bankroll początkowy:</strong> ${report.stats.initialAmount} zł</p>
+                                <p class="text-sm"><strong>Bankroll końcowy:</strong> ${report.stats.currentBalance.toFixed(2)} zł</p>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="font-semibold mb-2">Statystyki wyników</h4>
+                                <p class="text-sm text-green-600"><strong>Wygrane:</strong> ${report.stats.wonBets}</p>
+                                <p class="text-sm text-red-600"><strong>Przegrane:</strong> ${report.stats.lostBets}</p>
+                                <p class="text-sm text-blue-600"><strong>Zwroty:</strong> ${report.stats.returnedBets}</p>
+                                <p class="text-sm"><strong>Najlepsza seria:</strong> ${report.stats.bestStreak}</p>
+                                <p class="text-sm"><strong>Najgorsza seria:</strong> ${report.stats.worstStreak}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Bets History -->
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-4">Historia zakładów (${report.allBets.length})</h4>
+                            <div class="max-h-96 overflow-y-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-100 sticky top-0">
+                                        <tr>
+                                            <th class="p-2 text-left">Data</th>
+                                            <th class="p-2 text-left">Typ</th>
+                                            <th class="p-2 text-left">Kurs</th>
+                                            <th class="p-2 text-left">Stawka</th>
+                                            <th class="p-2 text-left">Wynik</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${report.allBets.map(bet => `
+                                            <tr class="border-b">
+                                                <td class="p-2">${bet.date}</td>
+                                                <td class="p-2">${bet.type}</td>
+                                                <td class="p-2">${bet.odds}</td>
+                                                <td class="p-2">${bet.stake} zł</td>
+                                                <td class="p-2">
+                                                    <span class="px-2 py-1 rounded text-xs ${
+                                                        bet.result === 'WYGRANA' ? 'bg-green-100 text-green-800' :
+                                                        bet.result === 'PRZEGRANA' ? 'bg-red-100 text-red-800' :
+                                                        bet.result === 'ZWROT' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }">
+                                                        ${bet.result || 'W trakcie'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function exportReport(reportId) {
+            const report = archivedReports.find(r => r.id === reportId);
+            if (!report) return;
+
+            const reportData = {
+                ...report,
+                exportedAt: new Date().toISOString()
+            };
+
+            const dataStr = JSON.stringify(reportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `raport_${report.profileName}_${new Date(report.generatedAt).toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showToast('success', 'Raport został wyeksportowany');
+        }
+
+        function deleteReport(reportId) {
+            if (!confirm('Czy na pewno chcesz usunąć ten raport?')) return;
+
+            archivedReports = archivedReports.filter(r => r.id !== reportId);
+            localStorage.setItem('archivedReports', JSON.stringify(archivedReports));
+            displayArchivedReports();
+            showToast('success', 'Raport został usunięty');
+        }
+
+        // Utility Functions
+        function safeLocalStorage() {
+            try {
+                const test = 'test';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return localStorage;
+            } catch (e) {
+                console.log('localStorage not available, using fallback');
+                return {
+                    getItem: () => null,
+                    setItem: () => {},
+                    removeItem: () => {}
+                };
+            }
+        }
+
+        const storage = safeLocalStorage();
+
+        function getFilteredBets() {
+            console.log('getFilteredBets called for profile:', currentProfile);
+            console.log('Total bets in array:', bets.length);
+            
+            if (currentProfile === 'ALL') {
+                const filteredBets = bets.filter(bet => {
+                    const hasValidProfileId = bet.profile_id && 
+                                             bet.profile_id !== 'undefined' && 
+                                             bet.profile_id !== undefined && 
+                                             bet.profile_id !== null;
+                    
+                    if (hasValidProfileId) {
+                        // Check if the profile still exists
+                        const profileExists = profiles[bet.profile_id];
+                        console.log('Bet profile_id:', bet.profile_id, 'exists:', !!profileExists);
+                        return !!profileExists;
+                    }
+                    return false;
+                });
+                console.log('ALL profile - filtered bets count:', filteredBets.length);
+                return filteredBets;
+            } else {
+                const filteredBets = bets.filter(bet => {
+                    const hasValidProfileId = bet.profile_id && 
+                                             bet.profile_id !== 'undefined' && 
+                                             bet.profile_id !== undefined && 
+                                             bet.profile_id !== null;
+                    
+                    if (hasValidProfileId) {
+                        const matches = bet.profile_id === currentProfile;
+                        console.log('Bet profile_id:', bet.profile_id, 'matches current:', matches);
+                        return matches;
+                    } else {
+                        const isDefaultProfile = currentProfile === 'default';
+                        console.log('Legacy bet, current is default:', isDefaultProfile);
+                        return isDefaultProfile;
+                    }
+                });
+                console.log('Specific profile - filtered bets count:', filteredBets.length);
+                return filteredBets;
+            }
+        }
+
+        // Profile Management Functions
+        function loadProfiles() {
+            try {
+                const savedProfiles = localStorage.getItem('userProfiles');
+                if (savedProfiles) {
+                    profiles = JSON.parse(savedProfiles);
+                    // Ensure all profiles have icon property
+                    Object.values(profiles).forEach(profile => {
+                        if (!profile.icon) profile.icon = '📊';
+                        if (!profile.goals) profile.goals = { monthly: 0, yield: 0 };
+                    });
+                } else {
+                    saveProfiles();
+                }
+                populateProfileSelect();
+                updateProfilesList();
+                updateProfileInfo();
+            } catch (error) {
+                console.error('Error loading profiles:', error);
+                profiles = {
+                    'default': {
+                        id: 'default',
+                        name: 'Główny',
+                        icon: '📊',
+                        initialAmount: 1000,
+                        taxRate: 12,
+                        stakingType: 'fixed',
+                        stakingAmount: 50,
+                        stakingPercentage: 2,
+                        locked: false,
+                        goals: { monthly: 0, yield: 0 },
+                        createdAt: new Date().toISOString(),
+                        periods: [{
+                            id: 1,
+                            startDate: new Date().toISOString(),
+                            endDate: null,
+                            isActive: true
+                        }]
+                    }
+                };
+                saveProfiles();
+            }
+        }
+
+        function saveProfiles() {
+            try {
+                localStorage.setItem('userProfiles', JSON.stringify(profiles));
+                localStorage.setItem('currentProfile', currentProfile);
+            } catch (error) {
+                console.error('Error saving profiles:', error);
+            }
+        }
+
+        function populateProfileSelect() {
+            const profileSelect = document.getElementById('profileSelect');
+            if (!profileSelect) return;
+
+            profileSelect.innerHTML = '';
+            
+            // Add "All profiles" option
+            const allOption = document.createElement('option');
+            allOption.value = 'ALL';
+            allOption.textContent = '🔄 Wszystkie profile';
+            allOption.selected = currentProfile === 'ALL';
+            profileSelect.appendChild(allOption);
+            
+            Object.values(profiles).forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile.id;
+                option.textContent = `${profile.icon} ${profile.name}`;
+                option.selected = profile.id === currentProfile;
+                profileSelect.appendChild(option);
+            });
+        }
+
+        function updateProfilesList() {
+            const profilesList = document.getElementById('profilesList');
+            if (!profilesList) return;
+
+            profilesList.innerHTML = '';
+            
+            Object.values(profiles).forEach(profile => {
+                const isActive = profile.id === currentProfile;
+                const profileDiv = document.createElement('div');
+                profileDiv.className = `p-4 border rounded-xl transition-all duration-300 stat-card-hover ${isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`;
+                
+                const activePeriod = profile.periods?.find(p => p.isActive);
+                const periodInfo = activePeriod ? 
+                    `Okres od: ${new Date(activePeriod.startDate).toLocaleDateString()}` : 
+                    'Brak aktywnego okresu';
+                
+                profileDiv.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h4 class="font-semibold flex items-center gap-2 ${isActive ? 'text-blue-700' : 'text-gray-800'}">
+                                <span class="text-2xl">${profile.icon}</span>
+                                ${profile.name} ${isActive ? '(Aktywny)' : ''}
+                            </h4>
+                            <p class="text-sm text-gray-600">Bankroll: ${profile.initialAmount} zł</p>
+                            <p class="text-sm text-gray-600">Podatek: ${profile.taxRate}%</p>
+                            <p class="text-sm text-gray-600">${periodInfo}</p>
+                            ${profile.locked ? '<p class="text-sm text-yellow-600"><i class="fas fa-lock mr-1"></i>Zablokowany</p>' : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            ${!isActive ? `<button onclick="switchProfile('${profile.id}')" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition-colors" title="Przełącz"><i class="fas fa-check"></i></button>` : ''}
+                            <button onclick="editProfile('${profile.id}')" class="text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors" title="Edytuj"><i class="fas fa-edit"></i></button>
+                            ${profile.id !== 'default' ? `<button onclick="openDeleteProfileModal('${profile.id}')" class="text-red-600 hover:bg-red-100 p-2 rounded-lg transition-colors" title="Usuń"><i class="fas fa-trash"></i></button>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                profilesList.appendChild(profileDiv);
+            });
+        }
+
+        function updateProfileInfo() {
+            const profileInfo = document.getElementById('profileInfo');
+            const currentProfileName = document.getElementById('currentProfileName');
+            const addBetProfileName = document.getElementById('addBetProfileName');
+            const initialAmountDisplay = document.getElementById('initialAmountDisplay');
+            const allProfilesWarning = document.getElementById('allProfilesWarning');
+
+            if (currentProfile === 'ALL') {
+                if (profileInfo) {
+                    const totalProfiles = Object.keys(profiles).length;
+                    profileInfo.textContent = `Wyświetlane: wszystkie profile (${totalProfiles})`;
+                }
+
+                if (currentProfileName) {
+                    currentProfileName.textContent = 'Wszystkie profile';
+                }
+
+                if (addBetProfileName) {
+                    addBetProfileName.textContent = 'Wszystkie profile';
+                }
+
+                if (initialAmountDisplay) {
+                    const totalInitial = Object.values(profiles).reduce((sum, p) => sum + (p.initialAmount || 0), 0);
+                    initialAmountDisplay.textContent = `${totalInitial} zł (suma)`;
+                }
+
+                if (allProfilesWarning) {
+                    allProfilesWarning.classList.remove('hidden');
+                }
+
+                disableSettingsForm();
+                return;
+            }
+
+            const profile = profiles[currentProfile];
+            if (!profile) return;
+
+            if (profileInfo) {
+                const activePeriod = profile.periods?.find(p => p.isActive);
+                const periodText = activePeriod ? 
+                    `Okres od: ${new Date(activePeriod.startDate).toLocaleDateString()}` : 
+                    'Brak aktywnego okresu';
+                profileInfo.textContent = `Bankroll: ${profile.initialAmount} zł • ${periodText}`;
+            }
+
+            if (currentProfileName) {
+                currentProfileName.textContent = profile.name;
+            }
+
+            if (addBetProfileName) {
+                addBetProfileName.textContent = profile.name;
+            }
+
+            if (initialAmountDisplay) {
+                initialAmountDisplay.textContent = `${profile.initialAmount} zł`;
+            }
+
+            if (allProfilesWarning) {
+                allProfilesWarning.classList.add('hidden');
+            }
+
+            updateSettingsForm(profile);
+            updateGoalsDisplay();
+        }
+
+        function updateSettingsForm(profile) {
+            const profileNameEdit = document.getElementById('profileNameEdit');
+            const initialAmount = document.getElementById('initialAmount');
+            const taxRate = document.getElementById('taxRate');
+            const stakingType = document.getElementById('stakingType');
+            const fixedStake = document.getElementById('fixedStake');
+            const percentageStake = document.getElementById('percentageStake');
+
+            if (profileNameEdit) profileNameEdit.value = profile.name || '';
+            if (initialAmount) initialAmount.value = profile.initialAmount || 1000;
+            if (taxRate) taxRate.value = profile.taxRate || 12;
+            if (stakingType) stakingType.value = profile.stakingType || 'fixed';
+            if (fixedStake) fixedStake.value = profile.stakingAmount || 50;
+            if (percentageStake) percentageStake.value = profile.stakingPercentage || 2;
+
+            enableSettingsForm();
+            toggleStakingInputs();
+        }
+
+        function disableSettingsForm() {
+            const formElements = [
+                'profileNameEdit', 'initialAmount', 'taxRate', 
+                'stakingType', 'fixedStake', 'percentageStake'
+            ];
+            
+            formElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = true;
+                    element.value = '';
+                }
+            });
+
+            const saveBtn = document.getElementById('saveProfileBtn');
+            const deleteBtn = document.getElementById('deleteProfileBtn');
+            if (saveBtn) saveBtn.disabled = true;
+            if (deleteBtn) deleteBtn.disabled = true;
+
+            const profileNameEdit = document.getElementById('profileNameEdit');
+            if (profileNameEdit) {
+                profileNameEdit.placeholder = 'Wybierz konkretny profil do edycji';
+            }
+        }
+
+        function enableSettingsForm() {
+            const formElements = [
+                'profileNameEdit', 'initialAmount', 'taxRate', 
+                'stakingType', 'fixedStake', 'percentageStake'
+            ];
+            
+            formElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.disabled = false;
+                }
+            });
+
+            const saveBtn = document.getElementById('saveProfileBtn');
+            const deleteBtn = document.getElementById('deleteProfileBtn');
+            if (saveBtn) saveBtn.disabled = false;
+            if (deleteBtn) deleteBtn.disabled = false;
+        }
+
+        function switchProfile(profileId) {
+            if (profileId === 'ALL') {
+                currentProfile = 'ALL';
+                saveProfiles();
+                populateProfileSelect();
+                updateProfilesList();
+                updateProfileInfo();
+                refreshStats();
+                
+                showToast('success', 'Wyświetlane: wszystkie profile');
+                return;
+            }
+
+            if (!profiles[profileId]) {
+                showToast('error', 'Profil nie istnieje');
+                return;
+            }
+
+            currentProfile = profileId;
+            saveProfiles();
+            populateProfileSelect();
+            updateProfilesList();
+            updateProfileInfo();
+            refreshStats();
+            
+            showToast('success', `Przełączono na profil: ${profiles[profileId].name}`);
+        }
+
+        function editProfile(profileId) {
+            switchProfile(profileId);
+            switchTab('settings');
+        }
+
+        // Modal Functions
+        function openCreateProfileModal() {
+            document.getElementById('createProfileModal').classList.remove('hidden');
+            document.getElementById('quickProfileName').focus();
+            
+            // Setup icon selection
+            const iconButtons = document.querySelectorAll('.profile-icon');
+            iconButtons.forEach(btn => {
+                btn.onclick = function() {
+                    iconButtons.forEach(b => b.classList.remove('bg-blue-200'));
+                    this.classList.add('bg-blue-200');
+                    document.getElementById('quickProfileIcon').value = this.dataset.icon;
+                };
+            });
+        }
+
+        function closeCreateProfileModal() {
+            document.getElementById('createProfileModal').classList.add('hidden');
+            document.getElementById('quickCreateProfileForm').reset();
+            document.getElementById('quickProfileIcon').value = '📊';
+            document.querySelectorAll('.profile-icon').forEach(btn => {
+                btn.classList.remove('bg-blue-200');
+            });
+            document.querySelector('.profile-icon[data-icon="📊"]').classList.add('bg-blue-200');
+        }
+
+        function openDeleteProfileModal(profileId = null) {
+            const targetProfileId = profileId || currentProfile;
+            const profile = profiles[targetProfileId];
+            
+            console.log('openDeleteProfileModal called with:', profileId);
+            console.log('Target profile ID:', targetProfileId);
+            console.log('Profile found:', profile);
+            
+            if (targetProfileId === 'default') {
+                showToast('error', 'Nie można usunąć głównego profilu');
+                return;
+            }
+
+            if (Object.keys(profiles).length <= 1) {
+                showToast('error', 'Nie można usunąć ostatniego profilu');
+                return;
+            }
+
+            if (!profile) {
+                showToast('error', 'Profil nie istnieje');
+                return;
+            }
+
+            document.getElementById('deleteProfileName').textContent = profile.name;
+            const modal = document.getElementById('deleteProfileModal');
+            modal.classList.remove('hidden');
+            modal.dataset.profileId = targetProfileId;
+            
+            console.log('Modal dataset.profileId set to:', modal.dataset.profileId);
+        }
+
+        function closeDeleteProfileModal() {
+            document.getElementById('deleteProfileModal').classList.add('hidden');
+            delete document.getElementById('deleteProfileModal').dataset.profileId;
+        }
+
+        function openResetProfileModal() {
+            const profile = profiles[currentProfile];
+            document.getElementById('resetProfileName').textContent = profile.name;
+            document.getElementById('resetProfileModal').classList.remove('hidden');
+        }
+
+        function closeResetProfileModal() {
+            document.getElementById('resetProfileModal').classList.add('hidden');
+        }
+
+        function createProfile(profileData) {
+            const profileId = 'profile_' + Date.now();
+            const newProfile = {
+                id: profileId,
+                name: profileData.name,
+                icon: profileData.icon || '📊',
+                initialAmount: parseFloat(profileData.initialAmount),
+                taxRate: parseFloat(profileData.taxRate),
+                stakingType: 'fixed',
+                stakingAmount: 50,
+                stakingPercentage: 2,
+                locked: false,
+                goals: { monthly: 0, yield: 0 },
+                createdAt: new Date().toISOString(),
+                periods: [{
+                    id: 1,
+                    startDate: new Date().toISOString(),
+                    endDate: null,
+                    isActive: true
+                }]
+            };
+
+            profiles[profileId] = newProfile;
+            saveProfiles();
+            populateProfileSelect();
+            updateProfilesList();
+            
+            showToast('success', `Profil "${profileData.name}" został utworzony`);
+            closeCreateProfileModal();
+        }
+
+        function duplicateCurrentProfile() {
+            const currentProfileData = profiles[currentProfile];
+            const newName = prompt('Podaj nazwę dla duplikatu profilu:', `${currentProfileData.name} - Kopia`);
+            
+            if (!newName || newName.trim() === '') {
+                return;
+            }
+
+            const nameExists = Object.values(profiles).some(p => p.name.toLowerCase() === newName.toLowerCase());
+            if (nameExists) {
+                showToast('error', 'Profil o tej nazwie już istnieje');
+                return;
+            }
+
+            createProfile({
+                name: newName.trim(),
+                icon: currentProfileData.icon || '📊',
+                initialAmount: currentProfileData.initialAmount,
+                taxRate: currentProfileData.taxRate
+            });
+        }
+
+        async function confirmDeleteProfile() {
+            const modal = document.getElementById('deleteProfileModal');
+            const profileId = modal.dataset.profileId;
+            const profile = profiles[profileId];
+            
+            console.log('confirmDeleteProfile called with profileId:', profileId);
+            console.log('Profile found:', profile);
+            
+            if (!profile || profileId === 'default') {
+                showToast('error', 'Nie można usunąć tego profilu');
+                closeDeleteProfileModal();
+                return;
+            }
+
+            // Generate and save report before deletion
+            console.log('Generating report for profile before deletion:', profile.name);
+            const report = generateProfileReport(profileId);
+            
+            if (report) {
+                const saved = saveReportToArchive(report);
+                if (saved) {
+                    console.log('Report saved successfully');
+                    showToast('success', `Raport profilu "${profile.name}" został zapisany w archiwum`);
+                } else {
+                    console.log('Failed to save report');
+                    showToast('warning', 'Nie udało się zapisać raportu, ale profil zostanie usunięty');
+                }
+            }
+
+            // Delete all bets associated with this profile from LOCAL array
+            const originalBetsCount = bets.length;
+            console.log('Original bets count:', originalBetsCount);
+            console.log('Filtering bets for profileId:', profileId);
+            
+            bets = bets.filter(bet => {
+                console.log('Checking bet:', bet.id, 'profile_id:', bet.profile_id);
+                const hasValidProfileId = bet.profile_id && 
+                                         bet.profile_id !== 'undefined' && 
+                                         bet.profile_id !== undefined && 
+                                         bet.profile_id !== null;
+                
+                if (hasValidProfileId) {
+                    const shouldKeep = bet.profile_id !== profileId;
+                    console.log('Valid profile_id bet, should keep:', shouldKeep);
+                    return shouldKeep;
+                } else {
+                    const shouldKeep = profileId !== 'default';
+                    console.log('Invalid profile_id bet, should keep:', shouldKeep);
+                    return shouldKeep;
+                }
+            });
+            
+            const deletedBetsCount = originalBetsCount - bets.length;
+            console.log(`Deleted ${deletedBetsCount} bets associated with profile ${profileId}`);
+            console.log('Remaining bets count:', bets.length);
+
+            // Delete profile from backend if connected
+            if (authToken) {
+                await deleteProfileBetsFromBackend(profileId);
+                // Refresh bets from backend after deletion
+                setTimeout(() => {
+                    console.log('Refreshing stats after profile deletion...');
+                    refreshStats();
+                }, 1000);
+            }
+
+            // Switch to default profile if current profile is being deleted
+            if (profileId === currentProfile) {
+                currentProfile = 'default';
+            }
+
+            // Remove profile
+            delete profiles[profileId];
+            saveProfiles();
+            populateProfileSelect();
+            updateProfilesList();
+            updateProfileInfo();
+            refreshStats();
+            displayArchivedReports(); // Refresh archives display
+            
+            showToast('success', `Profil "${profile.name}" został usunięty. ${deletedBetsCount > 0 ? `Usunięto ${deletedBetsCount} zakładów.` : ''} Raport zachowany w archiwum.`);
+            closeDeleteProfileModal();
+        }
+
+        async function deleteProfileBetsFromBackend(profileId) {
+            try {
+                console.log('Deleting profile bets from backend for profileId:', profileId);
+                
+                // First, get all bets for this profile from backend
+                const getBetsResponse = await fetch(`${API_BASE}/bets?profile=${profileId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (getBetsResponse.ok) {
+                    const profileBets = await getBetsResponse.json();
+                    console.log('Found', profileBets.length, 'bets to delete from backend');
+                    
+                    // Delete each bet individually
+                    for (const bet of profileBets) {
+                        try {
+                            const deleteResponse = await fetch(`${API_BASE}/bets/${bet.id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
+                            
+                            if (deleteResponse.ok) {
+                                console.log('Deleted bet', bet.id, 'from backend');
+                            } else {
+                                console.error('Failed to delete bet', bet.id, 'from backend');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting bet', bet.id, ':', error);
+                        }
+                    }
+                    
+                    console.log('Profile bets deletion from backend completed');
+                } else {
+                    console.error('Failed to get profile bets from backend');
+                }
+            } catch (error) {
+                console.error('Error deleting profile bets from backend:', error);
+            }
+        }
+
+        function confirmResetProfile() {
+            const profile = profiles[currentProfile];
+            
+            const activePeriod = profile.periods?.find(p => p.isActive);
+            if (activePeriod) {
+                activePeriod.isActive = false;
+                activePeriod.endDate = new Date().toISOString();
+            }
+
+            if (!profile.periods) profile.periods = [];
+            const newPeriodId = Math.max(0, ...profile.periods.map(p => p.id)) + 1;
+            profile.periods.push({
+                id: newPeriodId,
+                startDate: new Date().toISOString(),
+                endDate: null,
+                isActive: true
+            });
+
+            saveProfiles();
+            updateProfileInfo();
+            refreshStats();
+            
+            showToast('success', `Okres profilu "${profile.name}" został wyzerowany`);
+            closeResetProfileModal();
+        }
+
+        function saveCurrentProfile() {
+            const profile = profiles[currentProfile];
+            
+            const profileNameEdit = document.getElementById('profileNameEdit');
+            const initialAmount = document.getElementById('initialAmount');
+            const taxRate = document.getElementById('taxRate');
+            const stakingType = document.getElementById('stakingType');
+            const fixedStake = document.getElementById('fixedStake');
+            const percentageStake = document.getElementById('percentageStake');
+
+            const newName = profileNameEdit.value.trim();
+            if (newName && newName !== profile.name) {
+                const nameExists = Object.values(profiles).some(p => 
+                    p.id !== currentProfile && p.name.toLowerCase() === newName.toLowerCase()
+                );
+                if (nameExists) {
+                    showToast('error', 'Profil o tej nazwie już istnieje');
+                    return;
+                }
+            }
+
+            if (newName) profile.name = newName;
+            profile.initialAmount = parseFloat(initialAmount.value) || 1000;
+            profile.taxRate = parseFloat(taxRate.value) || 12;
+            profile.stakingType = stakingType.value || 'fixed';
+            profile.stakingAmount = parseFloat(fixedStake.value) || 50;
+            profile.stakingPercentage = parseFloat(percentageStake.value) || 2;
+
+            saveProfiles();
+            populateProfileSelect();
+            updateProfilesList();
+            updateProfileInfo();
+            refreshStats();
+            
+            showToast('success', 'Ustawienia profilu zostały zapisane');
+        }
+
+        function toggleStakingInputs() {
+            const stakingType = document.getElementById('stakingType');
+            const fixedStakeDiv = document.getElementById('fixedStakeDiv');
+            const percentageStakeDiv = document.getElementById('percentageStakeDiv');
+            
+            if (stakingType && fixedStakeDiv && percentageStakeDiv) {
+                if (stakingType.value === 'percentage') {
+                    fixedStakeDiv.classList.add('hidden');
+                    percentageStakeDiv.classList.remove('hidden');
+                } else {
+                    fixedStakeDiv.classList.remove('hidden');
+                    percentageStakeDiv.classList.add('hidden');
+                }
+            }
+        }
+
+        function exportProfiles() {
+            try {
+                const exportData = {
+                    profiles: profiles,
+                    currentProfile: currentProfile,
+                    exportDate: new Date().toISOString(),
+                    version: '2.0'
+                };
+
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `statsbet_profiles_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                showToast('success', 'Profile zostały wyeksportowane');
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('error', 'Błąd podczas eksportowania profili');
+            }
+        }
+
+        function importProfiles() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importData = JSON.parse(e.target.result);
+                        
+                        if (!importData.profiles || typeof importData.profiles !== 'object') {
+                            throw new Error('Nieprawidłowy format pliku');
+                        }
+                        
+                        let importedCount = 0;
+                        Object.values(importData.profiles).forEach(importProfile => {
+                            const nameExists = Object.values(profiles).some(p => 
+                                p.name.toLowerCase() === importProfile.name.toLowerCase()
+                            );
+                            
+                            if (!nameExists) {
+                                const newId = 'profile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                profiles[newId] = {
+                                    ...importProfile,
+                                    id: newId,
+                                    icon: importProfile.icon || '📊',
+                                    goals: importProfile.goals || { monthly: 0, yield: 0 },
+                                    createdAt: new Date().toISOString()
+                                };
+                                importedCount++;
+                            }
+                        });
+                        
+                        if (importedCount > 0) {
+                            saveProfiles();
+                            populateProfileSelect();
+                            updateProfilesList();
+                            showToast('success', `Zaimportowano ${importedCount} profili`);
+                        } else {
+                            showToast('warning', 'Nie zaimportowano żadnych profili (wszystkie już istnieją)');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Import error:', error);
+                        showToast('error', 'Błąd podczas importowania: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+
+        function initializeProfiles() {
+            loadProfiles();
+            loadArchivedReports(); // Load archived reports
+            
+            const savedCurrentProfile = localStorage.getItem('currentProfile');
+            if (savedCurrentProfile) {
+                if (savedCurrentProfile === 'ALL' || profiles[savedCurrentProfile]) {
+                    currentProfile = savedCurrentProfile;
+                }
+            }
+            
+            updateProfileInfo();
+            displayArchivedReports(); // Display archived reports in settings
+        }
+
+        function setupProfileEventListeners() {
+            const quickCreateProfileForm = document.getElementById('quickCreateProfileForm');
+            if (quickCreateProfileForm) {
+                quickCreateProfileForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const name = document.getElementById('quickProfileName').value.trim();
+                    const initialAmount = document.getElementById('quickProfileInitialAmount').value;
+                    const taxRate = document.getElementById('quickProfileTaxRate').value;
+                    const icon = document.getElementById('quickProfileIcon').value;
+                    
+                    if (!name) {
+                        showToast('error', 'Podaj nazwę profilu');
+                        return;
+                    }
+                    
+                    if (!initialAmount || parseFloat(initialAmount) <= 0) {
+                        showToast('error', 'Podaj prawidłową kwotę początkową');
+                        return;
+                    }
+                    
+                    const nameExists = Object.values(profiles).some(p => 
+                        p.name.toLowerCase() === name.toLowerCase()
+                    );
+                    if (nameExists) {
+                        showToast('error', 'Profil o tej nazwie już istnieje');
+                        return;
+                    }
+                    
+                    createProfile({
+                        name: name,
+                        icon: icon,
+                        initialAmount: initialAmount,
+                        taxRate: taxRate || 12
+                    });
+                });
+            }
+
+            const goalForm = document.getElementById('goalForm');
+            if (goalForm) {
+                goalForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveGoals();
+                });
+            }
+        }
+
+        function calculatePotentialWin() {
+            const odds = parseFloat(document.getElementById('betOdds').value) || 0;
+            const stake = parseFloat(document.getElementById('betStake').value) || 0;
+            const profile = profiles[currentProfile];
+            const taxRate = (profile?.taxRate || 12) / 100;
+            const potentialWin = odds * (stake * (1 - taxRate));
+            
+            document.getElementById('betPotentialWin').value = potentialWin.toFixed(2);
+        }
+
+        function displayStats(stats) {
+            console.log('displayStats called with:', stats);
+            
+            if (currentProfile === 'ALL') {
+                const totalInitialAmount = Object.values(profiles).reduce((sum, p) => sum + (p.initialAmount || 0), 0);
+                const profit = parseFloat(stats.profit || 0);
+                const currentBalance = totalInitialAmount + profit;
+                
+                document.getElementById('currentAmount').textContent = `${currentBalance.toFixed(2)} zł`;
+                document.getElementById('totalStake').textContent = `${stats.totalStake || 0} zł`;
+                
+                const profitElement = document.getElementById('profit');
+                profitElement.textContent = `${stats.profit || 0} zł`;
+                profitElement.className = `text-2xl font-bold ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+                
+                   // Use yield from backend if available, otherwise calculate locally
+                let yieldValue = stats.yieldPercentage;
+                if (yieldValue === undefined || yieldValue === null) {
+                    const totalStake = parseFloat(stats.totalStake || 0);
+                    const netProfit = parseFloat(stats.profit || 0);
+                    yieldValue = totalStake > 0 ? (netProfit / totalStake) * 100 : 0;
+                    console.log('Calculated yield locally:', yieldValue);
+                } else {
+                    // Backend zwraca yield już pomnożony przez 100, więc dzielimy przez 100
+                    yieldValue = yieldValue / 100;
+                    console.log('Using yield from backend (divided by 100):', yieldValue);
+                }
+                
+                const yieldElement = document.getElementById('yieldPercentage');
+                yieldElement.textContent = `${parseFloat(yieldValue).toFixed(2)}%`;
+                yieldElement.className = `text-2xl font-bold ${parseFloat(yieldValue) >= 0 ? 'text-green-600' : 'text-red-600'}`;
+                
+                document.getElementById('winRate').textContent = `${stats.winRate || 0}%`;
+                document.getElementById('totalBets').textContent = stats.totalBets || 0;
+                
+                document.getElementById('initialAmountDisplay').textContent = `${totalInitialAmount} zł (suma)`;
+                
+                return;
+            }
+            
+            const profile = profiles[currentProfile];
+            const initialAmount = profile?.initialAmount || 1000;
+            const profit = parseFloat(stats.profit || 0);
+            const currentBalance = initialAmount + profit;
+            
+            document.getElementById('currentAmount').textContent = `${currentBalance.toFixed(2)} zł`;
+            document.getElementById('totalStake').textContent = `${stats.totalStake || 0} zł`;
+            
+            const profitElement = document.getElementById('profit');
+            profitElement.textContent = `${stats.profit || 0} zł`;
+            profitElement.className = `text-2xl font-bold ${profit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+            
+            // Use yield from backend if available, otherwise calculate locally
+            let yieldValue = stats.yieldPercentage;
+            if (yieldValue === undefined || yieldValue === null) {
+                const totalStake = parseFloat(stats.totalStake || 0);
+                const netProfit = parseFloat(stats.profit || 0);
+                yieldValue = totalStake > 0 ? (netProfit / totalStake) * 100 : 0;
+                console.log('Calculated yield locally:', yieldValue);
+            } else {
+               yieldValue = parseFloat(yieldValue) / 100;
+console.log('DEBUG: Dividing backend yield by 100:', yieldValue);
+            }
+            
+            const yieldElement = document.getElementById('yieldPercentage');
+            yieldElement.textContent = `${parseFloat(yieldValue).toFixed(2)}%`;
+            yieldElement.className = `text-2xl font-bold ${parseFloat(yieldValue) >= 0 ? 'text-green-600' : 'text-red-600'}`;
+            
+            document.getElementById('winRate').textContent = `${stats.winRate || 0}%`;
+            document.getElementById('totalBets').textContent = stats.totalBets || 0;
+
+            // Update streak
+            const filteredBets = getFilteredBets();
+            const streaks = calculateStreaks(filteredBets);
+            const currentStreakElement = document.getElementById('currentStreakDisplay');
+            if (currentStreakElement) {
+                currentStreakElement.textContent = streaks.current;
+            }
+        }
+
+        function displayDefaultStats() {
+            console.log('displayDefaultStats called');
+            
+            if (currentProfile === 'ALL') {
+                const totalInitialAmount = Object.values(profiles).reduce((sum, p) => sum + (p.initialAmount || 0), 0);
+                document.getElementById('currentAmount').textContent = `${totalInitialAmount} zł`;
+                document.getElementById('initialAmountDisplay').textContent = `${totalInitialAmount} zł (suma)`;
+            } else {
+                const profile = profiles[currentProfile];
+                const initialAmount = profile?.initialAmount || 1000;
+                document.getElementById('currentAmount').textContent = `${initialAmount} zł`;
+            }
+            
+            document.getElementById('totalStake').textContent = '0 zł';
+            document.getElementById('profit').textContent = '0 zł';
+            document.getElementById('yieldPercentage').textContent = '0.00%';
+            document.getElementById('winRate').textContent = '0%';
+            document.getElementById('totalBets').textContent = '0';
+            
+            const currentStreakElement = document.getElementById('currentStreakDisplay');
+            if (currentStreakElement) {
+                currentStreakElement.textContent = '0';
+            }
+        }
+
+        function startEditBet(betId) {
+            const bet = bets.find(b => b.id === betId);
+            if (!bet) return;
+            
+            editingBetId = betId;
+            
+            document.getElementById('betDate').value = bet.date;
+            document.getElementById('betType').value = bet.betType || bet.bet_type;
+            document.getElementById('betCategory').value = bet.betCategory || bet.bet_category;
+            document.getElementById('betOdds').value = bet.odds;
+            document.getElementById('betStake').value = bet.stake;
+            document.getElementById('betResult').value = bet.result || '';
+            document.getElementById('betPotentialWin').value = bet.potentialWin || bet.potential_win;
+            document.getElementById('betSport').value = bet.sport || '';
+            document.getElementById('betNote').value = bet.note || '';
+            
+            const submitBtn = document.getElementById('addBetButton');
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Zapisz zmiany';
+            submitBtn.className = 'bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-2 shadow-lg';
+            
+            if (!document.getElementById('cancelEditButton')) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.type = 'button';
+                cancelBtn.id = 'cancelEditButton';
+                cancelBtn.className = 'ml-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all duration-300';
+                cancelBtn.innerHTML = 'Anuluj';
+                cancelBtn.onclick = cancelEdit;
+                submitBtn.parentNode.appendChild(cancelBtn);
+            }
+            
+            switchTab('addBet');
+        }
+
+        async function deleteBet(betId) {
+            if (!confirm('Czy na pewno chcesz usunąć ten zakład?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/bets/${betId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    showToast('success', 'Zakład został usunięty!');
+                    refreshStats();
+                } else {
+                    showToast('error', 'Błąd podczas usuwania zakładu');
+                }
+            } catch (error) {
+                showToast('error', 'Błąd połączenia z serwerem');
+            }
+        }
+
+        function resetForm() {
+            editingBetId = null;
+            
+            document.getElementById('betForm').reset();
+            document.getElementById('betDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('betPotentialWin').value = '';
+            
+            const submitBtn = document.getElementById('addBetButton');
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i> Dodaj zakład';
+            submitBtn.className = 'bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center gap-2 shadow-lg';
+            
+            const cancelBtn = document.getElementById('cancelEditButton');
+            if (cancelBtn) {
+                cancelBtn.remove();
+            }
+        }
+
+        function cancelEdit() {
+            resetForm();
+        }
+
+        function toggleAuthMode() {
+            console.log('toggleAuthMode called');
+            
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const authTitle = document.getElementById('authTitle');
+            const authSwitchText = document.getElementById('authSwitchText');
+
+            if (loginForm && registerForm && authTitle && authSwitchText) {
+                if (loginForm.classList.contains('hidden')) {
+                    loginForm.classList.remove('hidden');
+                    registerForm.classList.add('hidden');
+                    authTitle.textContent = 'Logowanie';
+                    authSwitchText.innerHTML = 'Nie masz konta? <a href="javascript:void(0)" onclick="toggleAuthMode()" class="text-blue-600 hover:underline font-medium">Zarejestruj się</a>';
+                } else {
+                    loginForm.classList.add('hidden');
+                    registerForm.classList.remove('hidden');
+                    authTitle.textContent = 'Rejestracja';
+                    authSwitchText.innerHTML = 'Masz już konto? <a href="javascript:void(0)" onclick="toggleAuthMode()" class="text-blue-600 hover:underline font-medium">Zaloguj się</a>';
+                }
+                
+                clearAlerts();
+            }
+        }
+
+        function switchTab(tabName) {
+            console.log('Switching to tab:', tabName);
+            
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            document.querySelectorAll('nav button').forEach(tab => {
+                tab.classList.remove('bg-blue-600', 'text-white');
+                tab.classList.add('text-gray-600', 'hover:bg-gray-50');
+            });
+            
+            const tabContent = document.getElementById(tabName + 'Content');
+            if (tabContent) {
+                tabContent.classList.remove('hidden');
+            }
+            
+            const activeTab = document.getElementById(tabName + 'Tab');
+            if (activeTab) {
+                activeTab.classList.add('bg-blue-600', 'text-white');
+                activeTab.classList.remove('text-gray-600', 'hover:bg-gray-50');
+            }
+            
+            if (tabName === 'addBet') {
+                setTimeout(() => {
+                    setupBetFormListeners();
+                    console.log('Re-setup bet form listeners for addBet tab');
+                }, 50);
+            } else if (tabName === 'analytics') {
+                setTimeout(() => {
+                    updateAnalytics();
+                }, 100);
+            } else if (tabName === 'settings') {
+                setTimeout(() => {
+                    displayArchivedReports();
+                    console.log('Refreshed archived reports display');
+                }, 50);
+            }
+        }
+
+        function initializeApp() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('betDate');
+            if (dateInput) {
+                dateInput.value = today;
+            }
+        }
+
+        function setupEventListeners() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+            }
+            
+            if (registerForm) {
+                registerForm.addEventListener('submit', handleRegister);
+            }
+            
+            setupBetFormListeners();
+            setupProfileEventListeners();
+        }
+
+        function setupBetFormListeners() {
+            const betForm = document.getElementById('betForm');
+            
+            if (betForm) {
+                betForm.removeEventListener('submit', handleAddBet);
+                betForm.addEventListener('submit', handleAddBet);
+                
+                console.log('Bet form listener attached');
+            }
+            
+            const oddsInput = document.getElementById('betOdds');
+            const stakeInput = document.getElementById('betStake');
+            
+            if (oddsInput) {
+                oddsInput.removeEventListener('input', calculatePotentialWin);
+                oddsInput.addEventListener('input', calculatePotentialWin);
+            }
+            
+            if (stakeInput) {
+                stakeInput.removeEventListener('input', calculatePotentialWin);
+                stakeInput.addEventListener('input', calculatePotentialWin);
+            }
+        }
+
+        async function verifyEmail(token) {
+            showVerificationLayout();
+            
+            try {
+                const response = await fetch(`${API_BASE}/verify/${token}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showVerificationSuccess(data.message);
+                } else {
+                    showVerificationError(data.error);
+                }
+            } catch (error) {
+                showVerificationError('Błąd połączenia z serwerem');
+            }
+        }
+
+        function showVerificationLayout() {
+            document.getElementById('authLayout').classList.add('hidden');
+            document.getElementById('verificationLayout').classList.remove('hidden');
+        }
+
+        function showVerificationSuccess(message) {
+            document.getElementById('verificationContent').innerHTML = `
+                <div class="text-6xl mb-4 text-green-600">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Email zweryfikowany!</h2>
+                <p class="text-gray-600 mb-4">${message}</p>
+                <button onclick="goToLogin()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Przejdź do logowania
+                </button>
+            `;
+        }
+
+        function showVerificationError(error) {
+            document.getElementById('verificationContent').innerHTML = `
+                <div class="text-6xl mb-4 text-red-600">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-2">Błąd weryfikacji</h2>
+                <p class="text-gray-600 mb-4">${error}</p>
+                <button onclick="goToLogin()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300">
+                    <i class="fas fa-arrow-left mr-2"></i> Powrót do logowania
+                </button>
+            `;
+        }
+
+        function goToLogin() {
+            window.location.href = window.location.origin + window.location.pathname;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('loginEmail');
+            const passwordInput = document.getElementById('loginPassword');
+            
+            if (!emailInput || !passwordInput) return;
+            
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Server returned non-JSON response:', text);
+                    showAlert('error', `Błąd serwera: ${response.status}. Sprawdź czy backend działa na localhost:3000`);
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    currentUser = data.user;
+                    storage.setItem('authToken', authToken);
+                    storage.setItem('currentUser', JSON.stringify(currentUser));
+                    showApp(currentUser);
+                } else {
+                    if (data.needsVerification) {
+                        showAlert('warning', `${data.error} <button onclick="resendVerification('${data.email}')" class="ml-2 bg-blue-500 text-white px-2 py-1 rounded text-sm hover:bg-blue-600">Wyślij ponownie</button>`);
+                    } else {
+                        showAlert('error', data.error);
+                    }
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('error', 'Błąd połączenia z serwerem. Sprawdź czy backend działa na localhost:3000');
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            
+            const usernameInput = document.getElementById('registerUsername');
+            const emailInput = document.getElementById('registerEmail');
+            const passwordInput = document.getElementById('registerPassword');
+            
+            if (!usernameInput || !emailInput || !passwordInput) return;
+            
+            const username = usernameInput.value;
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            
+            if (password.length < 6) {
+                showAlert('error', 'Hasło musi mieć minimum 6 znaków');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('success', `${data.message} <button onclick="resendVerification('${data.email}')" class="ml-2 bg-blue-500 text-white px-2 py-1 rounded text-sm hover:bg-blue-600">Wyślij ponownie</button>`);
+                    document.getElementById('registerForm').reset();
+                } else {
+                    showAlert('error', data.error);
+                }
+            } catch (error) {
+                showAlert('error', 'Błąd połączenia z serwerem');
+            }
+        }
+
+        async function resendVerification(email) {
+            try {
+                const response = await fetch(`${API_BASE}/resend-verification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('success', data.message);
+                } else {
+                    showAlert('error', data.error);
+                }
+            } catch (error) {
+                showAlert('error', 'Błąd połączenia z serwerem');
+            }
+        }
+
+        function logout() {
+            storage.removeItem('authToken');
+            storage.removeItem('currentUser');
+            authToken = null;
+            currentUser = null;
+            showAuth();
+        }
+
+        function showAuth() {
+            document.getElementById('authLayout').classList.remove('hidden');
+            document.getElementById('verificationLayout').classList.add('hidden');
+            document.getElementById('appLayout').classList.add('hidden');
+            clearAlerts();
+        }
+
+        function showApp(user) {
+            document.getElementById('authLayout').classList.add('hidden');
+            document.getElementById('verificationLayout').classList.add('hidden');
+            document.getElementById('appLayout').classList.remove('hidden');
+            document.getElementById('usernameDisplay').textContent = user.username;
+            
+            setTimeout(() => {
+                setupBetFormListeners();
+            }, 100);
+            
+            initializeProfiles();
+            
+            switchTab('dashboard');
+            refreshStats();
+        }
+
+        function showAlert(type, message) {
+            clearAlerts();
+            const alertContainer = document.getElementById('alertContainer');
+            if (alertContainer) {
+                const alertColors = {
+                    success: 'bg-green-100 border-green-400 text-green-700',
+                    error: 'bg-red-100 border-red-400 text-red-700',
+                    warning: 'bg-yellow-100 border-yellow-400 text-yellow-700',
+                    info: 'bg-blue-100 border-blue-400 text-blue-700'
+                };
+                
+                const alert = document.createElement('div');
+                alert.className = `border px-4 py-3 rounded mb-4 ${alertColors[type]}`;
+                alert.innerHTML = message;
+                alertContainer.appendChild(alert);
+                
+                if (type === 'success') {
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 5000);
+                }
+            }
+        }
+
+        function clearAlerts() {
+            const alertContainer = document.getElementById('alertContainer');
+            if (alertContainer) {
+                alertContainer.innerHTML = '';
+            }
+        }
+
+        async function testBackendConnection() {
+            try {
+                console.log('Testing backend connection...');
+                
+                const endpoints = [
+                    `${API_BASE}/health`,
+                    `${API_BASE}/bets`,
+                    `${API_BASE}/stats`,
+                    'http://localhost:3000/',
+                ];
+                
+                let connected = false;
+                let lastError = null;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        console.log(`Testing endpoint: ${endpoint}`);
+                        
+                        const headers = {};
+                        if (endpoint.includes('/stats') && authToken) {
+                            headers['Authorization'] = `Bearer ${authToken}`;
+                        }
+                        
+                        const response = await fetch(endpoint, {
+                            method: 'GET',
+                            headers
+                        });
+                        
+                        console.log(`${endpoint} response status:`, response.status);
+                        
+                        if (response.ok || response.status === 401) {
+                            const text = await response.text();
+                            console.log(`${endpoint} response:`, text);
+                            
+                            showToast('success', `✅ Backend dostępny na: ${endpoint}`);
+                            connected = true;
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`${endpoint} failed:`, error.message);
+                        lastError = error;
+                    }
+                }
+                
+                if (!connected) {
+                    console.error('All endpoints failed. Last error:', lastError);
+                    showToast('error', '❌ Nie można połączyć się z backendem. Sprawdź czy działa na localhost:3000 i czy masz właściwe endpointy');
+                }
+                
+            } catch (error) {
+                console.error('Backend connection test failed:', error);
+                showToast('error', '❌ Błąd testu połączenia: ' + error.message);
+            }
+        }
+
+        async function handleAddBet(e) {
+            e.preventDefault();
+            console.log('handleAddBet called');
+            
+            if (currentProfile === 'ALL') {
+                showToast('error', 'Wybierz konkretny profil, żeby dodać zakład');
+                return;
+            }
+            
+            const dateInput = document.getElementById('betDate');
+            const typeInput = document.getElementById('betType');
+            const categoryInput = document.getElementById('betCategory');
+            const oddsInput = document.getElementById('betOdds');
+            const stakeInput = document.getElementById('betStake');
+            const resultInput = document.getElementById('betResult');
+            const sportInput = document.getElementById('betSport');
+            const noteInput = document.getElementById('betNote');
+            
+            if (!dateInput || !typeInput || !categoryInput || !oddsInput || !stakeInput) {
+                console.error('Missing form elements');
+                showToast('error', 'Błąd: nie znaleziono wszystkich pól formularza');
+                return;
+            }
+            
+            const betData = {
+                date: dateInput.value,
+                betType: typeInput.value,
+                betCategory: categoryInput.value,
+                odds: parseFloat(oddsInput.value || 0),
+                stake: parseFloat(stakeInput.value || 0),
+                potentialWin: parseFloat(document.getElementById('betPotentialWin')?.value || 0),
+                result: resultInput?.value || null,
+                sport: sportInput?.value || '',
+                note: noteInput?.value || '',
+                profileId: currentProfile
+            };
+            
+            if (!betData.date || !betData.betType || !betData.betCategory || !betData.odds || !betData.stake) {
+                const missingFields = [];
+                if (!betData.date) missingFields.push('Data');
+                if (!betData.betType) missingFields.push('Typ zakładu');
+                if (!betData.betCategory) missingFields.push('Rodzaj zakładu');
+                if (!betData.odds) missingFields.push('Kurs');
+                if (!betData.stake) missingFields.push('Stawka');
+                
+                showToast('error', `Uzupełnij wymagane pola: ${missingFields.join(', ')}`);
+                return;
+            }
+            
+            try {
+                let url = `${API_BASE}/bets`;
+                let method = 'POST';
+                
+                if (editingBetId) {
+                    url = `${API_BASE}/bets/${editingBetId}`;
+                    method = 'PUT';
+                }
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(betData)
+                });
+                
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const result = await response.json();
+                        console.log('Bet saved successfully:', result);
+                    }
+                    
+                    const message = editingBetId ? 'Zakład został zaktualizowany!' : 'Zakład został dodany pomyślnie!';
+                    
+                    resetForm();
+                    refreshStats();
+                    showToast('success', message);
+                    switchTab('dashboard');
+                } else {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        showToast('error', error.error || 'Błąd podczas zapisywania zakładu');
+                    } else {
+                        const text = await response.text();
+                        console.error('Server returned non-JSON response:', text);
+                        showToast('error', `Błąd serwera: ${response.status}. Sprawdź endpointy API`);
+                    }
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                showToast('error', 'Błąd połączenia z serwerem');
+            }
+        }
+
+function calculateLocalStats(filteredBets) {
+    const completedBets = filteredBets.filter(bet => bet.result && bet.result !== '');
+    const wonBets = completedBets.filter(bet => bet.result === 'WYGRANA');
+    const lostBets = completedBets.filter(bet => bet.result === 'PRZEGRANA');
+    
+    const totalStake = filteredBets.reduce((sum, bet) => sum + parseFloat(bet.stake || 0), 0);
+    
+    // Calculate net profit
+    let totalNetProfit = 0;
+    filteredBets.forEach(bet => {
+        if (bet.result === 'WYGRANA') {
+            const winAmount = parseFloat(bet.potentialWin || bet.potential_win || 0);
+            const stakeAmount = parseFloat(bet.stake || 0);
+            totalNetProfit += (winAmount - stakeAmount); // Net profit
+        } else if (bet.result === 'PRZEGRANA') {
+            totalNetProfit -= parseFloat(bet.stake || 0);
+        }
+        // ZWROT doesn't affect profit
+    });
+    
+    // Calculate yield percentage
+    const yieldPercentage = totalStake > 0 ? (totalNetProfit / totalStake) * 100 : 0;
+    
+    // Calculate win rate
+    const winRate = completedBets.length > 0 ? (wonBets.length / completedBets.length) * 100 : 0;
+    
+    return {
+        totalStake: totalStake.toFixed(2),
+        profit: totalNetProfit.toFixed(2),
+        yieldPercentage: yieldPercentage.toFixed(2),
+        winRate: winRate.toFixed(1),
+        totalBets: filteredBets.length,
+        wonBets: wonBets.length,
+        lostBets: lostBets.length
+    };
+}
+
+async function refreshStats() {
+    if (!authToken) return;
+    
+    try {
+        let statsUrl = `${API_BASE}/stats`;
+        let betsUrl = `${API_BASE}/bets`;
+        
+        if (currentProfile !== 'ALL') {
+            statsUrl += `?profile=${currentProfile}`;
+            betsUrl += `?profile=${currentProfile}`;
+        }
+        
+        // For ALL profiles, we need to calculate stats locally to exclude deleted profiles
+        if (currentProfile === 'ALL') {
+            // Get all bets first
+            const betsResponse = await fetch(betsUrl, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (betsResponse.ok) {
+                const contentType = betsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const allBetsData = await betsResponse.json();
+                    bets = allBetsData;
+                    
+                    console.log('🔍 DEBUG ALL PROFILES:');
+                    console.log('Total bets from backend:', bets.length);
+                    console.log('All bets:', bets);
+                    console.log('Available profiles:', Object.keys(profiles));
+                    
+                    // Filter to only existing profiles
+                    const filteredBets = getFilteredBets();
+                    console.log('Filtered bets for existing profiles:', filteredBets.length);
+                    console.log('Filtered bets:', filteredBets);
+                    
+                    // Calculate stats locally from filtered bets
+                    const localStats = calculateLocalStats(filteredBets);
+                    console.log('📊 Calculated local stats for ALL profiles:', localStats);
+                    
+                    displayStats(localStats);
+                    displayRecentBets(filteredBets.slice(-10).reverse());
+                    displayHistoryBets(filteredBets);
+                    updateGoalsDisplay();
+                    return;
+                }
+            }
+            
+            // Fallback if bets request fails
+            displayDefaultStats();
+            displayRecentBets([]);
+            displayHistoryBets([]);
+            return;
+        }
+        
+        // For individual profiles, use backend stats
+        const response = await fetch(statsUrl, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const stats = await response.json();
+                displayStats(stats);
+            } else {
+                console.error('Stats API returned non-JSON response');
+                displayDefaultStats();
+            }
+        } else {
+            displayDefaultStats();
+        }
+        
+        const betsResponse = await fetch(betsUrl, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (betsResponse.ok) {
+            const contentType = betsResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const betsData = await betsResponse.json();
+                bets = betsData;
+                
+                let filteredBets = getFilteredBets();
+                
+                console.log(`🎯 Profile '${currentProfile}': showing ${filteredBets.length}/${bets.length} bets`);
+                
+                displayRecentBets(filteredBets.slice(-10).reverse());
+                displayHistoryBets(filteredBets);
+                updateGoalsDisplay();
+            } else {
+                console.error('Bets API returned non-JSON response');
+                displayRecentBets([]);
+                displayHistoryBets([]);
+            }
+        } else {
+            displayRecentBets([]);
+            displayHistoryBets([]);
+        }
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        displayDefaultStats();
+        displayRecentBets([]);
+        displayHistoryBets([]);
+    }
+}
+
+        function displayRecentBets(betsToShow) {
+            const tbody = document.getElementById('recentBetsBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (betsToShow.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center">
+                                <i class="fas fa-inbox text-4xl mb-2 opacity-50"></i>
+                                <span>Brak zakładów do wyświetlenia</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            betsToShow.forEach(bet => {
+                const row = document.createElement('tr');
+                row.className = 'bet-row hover:bg-gray-50';
+                
+                const resultColors = {
+                    'WYGRANA': 'bg-green-100 text-green-800',
+                    'PRZEGRANA': 'bg-red-100 text-red-800',
+                    'ZWROT': 'bg-blue-100 text-blue-800'
+                };
+                
+                const profileName = bet.profile_id && profiles[bet.profile_id] ? 
+                    profiles[bet.profile_id].name : 'Nieznany';
+                
+                const profileIcon = bet.profile_id && profiles[bet.profile_id] ? 
+                    profiles[bet.profile_id].icon : '📊';
+                
+                const profileDisplay = currentProfile === 'ALL' ? 
+                    `<div class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <span>${profileIcon}</span>
+                        ${profileName}
+                    </div>` : '';
+
+                let resultDisplay;
+                if (!bet.result || bet.result === '' || bet.result === 'W TRAKCIE') {
+                    resultDisplay = `
+                        <select onchange="quickUpdateResult(${bet.id}, this.value)" 
+                                class="px-2 py-1 border border-gray-300 rounded text-xs bg-yellow-50 focus:ring-2 focus:ring-blue-500 transition-all duration-300">
+                            <option value="">⏳ W trakcie...</option>
+                            <option value="WYGRANA">✅ WYGRANA</option>
+                            <option value="PRZEGRANA">❌ PRZEGRANA</option>
+                            <option value="ZWROT">🔄 ZWROT</option>
+                        </select>
+                    `;
+                } else {
+                    resultDisplay = `
+                        <span class="px-2 py-1 rounded-full text-xs ${resultColors[bet.result] || 'bg-gray-100 text-gray-800'}">
+                            ${bet.result}
+                        </span>
+                        <button onclick="resetBetResult(${bet.id})" 
+                                class="ml-1 p-1 text-yellow-600 hover:bg-yellow-100 rounded transition-colors" 
+                                title="Przywróć do 'W trakcie'">
+                            <i class="fas fa-undo text-xs"></i>
+                        </button>
+                    `;
+                }
+                
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm">
+                        <div class="flex flex-col">
+                            <span class="font-medium">${bet.date || 'Brak daty'}</span>
+                            ${bet.sport ? `<span class="text-xs text-gray-500">${bet.sport}</span>` : ''}
+                            ${profileDisplay}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                            ${bet.betType || bet.bet_type || 'SINGLE'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">
+                            ${bet.betCategory || bet.bet_category || 'PRE-MATCH'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm font-medium">${bet.odds || '0'}</td>
+                    <td class="px-4 py-3 text-sm">${bet.stake || '0'} zł</td>
+                    <td class="px-4 py-3 text-sm">${bet.potentialWin || bet.potential_win || '0'} zł</td>
+                    <td class="px-4 py-3 text-sm">
+                        ${resultDisplay}
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="flex gap-2">
+                            <button 
+                                onclick="startEditBet(${bet.id})"
+                                class="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                title="Edytuj"
+                            >
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button 
+                                onclick="deleteBet(${bet.id})"
+                                class="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                                title="Usuń"
+                            >
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            ${bet.note ? `<button class="p-1 text-gray-600 hover:bg-gray-100 rounded transition-colors" title="${bet.note}"><i class="fas fa-sticky-note"></i></button>` : ''}
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function displayHistoryBets(betsToShow) {
+            displayRecentBets(betsToShow); // Same display logic for now
+            
+            const tbody = document.getElementById('historyTableBody');
+            if (tbody) {
+                tbody.innerHTML = document.getElementById('recentBetsBody').innerHTML;
+            }
+        }
+
+        async function quickUpdateResult(betId, newResult) {
+            if (!newResult || !authToken) return;
+            
+            try {
+                console.log('Updating bet result:', betId, newResult);
+                
+                const bet = bets.find(b => b.id == betId);
+                if (!bet) {
+                    showToast('error', 'Nie znaleziono zakładu');
+                    return;
+                }
+                
+                const updateData = {
+                    date: bet.date,
+                    betType: bet.betType || bet.bet_type,
+                    betCategory: bet.betCategory || bet.bet_category,
+                    odds: bet.odds,
+                    stake: bet.stake,
+                    potentialWin: bet.potentialWin || bet.potential_win,
+                    result: newResult,
+                    sport: bet.sport || '',
+                    note: bet.note || '',
+                    profileId: bet.profile_id
+                };
+                
+                console.log('Sending update data:', updateData);
+                
+                const response = await fetch(`${API_BASE}/bets/${betId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                console.log('Update response status:', response.status);
+                
+                if (response.ok) {
+                    const resultTexts = {
+                        'WYGRANA': '✅ Zakład oznaczony jako WYGRANA',
+                        'PRZEGRANA': '❌ Zakład oznaczony jako PRZEGRANA', 
+                        'ZWROT': '🔄 Zakład oznaczony jako ZWROT'
+                    };
+                    
+                    showToast('success', resultTexts[newResult] || 'Wynik zaktualizowany');
+                    refreshStats();
+                } else {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        console.error('API error:', error);
+                        showToast('error', error.error || 'Błąd podczas aktualizacji wyniku');
+                    } else {
+                        const text = await response.text();
+                        console.error('Server returned non-JSON response:', text);
+                        showToast('error', `Błąd serwera: ${response.status}`);
+                    }
+                    refreshStats();
+                }
+            } catch (error) {
+                console.error('Error updating bet result:', error);
+                showToast('error', 'Błąd połączenia z serwerem');
+                refreshStats();
+            }
+        }
+
+        async function resetBetResult(betId) {
+            if (!confirm('Czy na pewno chcesz przywrócić zakład do stanu "W trakcie"?')) {
+                return;
+            }
+            
+            try {
+                console.log('Resetting bet result:', betId);
+                
+                const bet = bets.find(b => b.id == betId);
+                if (!bet) {
+                    showToast('error', 'Nie znaleziono zakładu');
+                    return;
+                }
+                
+                const updateData = {
+                    date: bet.date,
+                    betType: bet.betType || bet.bet_type,
+                    betCategory: bet.betCategory || bet.bet_category,
+                    odds: bet.odds,
+                    stake: bet.stake,
+                    potentialWin: bet.potentialWin || bet.potential_win,
+                    result: '',
+                    sport: bet.sport || '',
+                    note: bet.note || '',
+                    profileId: bet.profile_id
+                };
+                
+                console.log('Sending reset data:', updateData);
+                
+                const response = await fetch(`${API_BASE}/bets/${betId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                console.log('Reset response status:', response.status);
+                
+                if (response.ok) {
+                    showToast('success', '⏳ Zakład przywrócony do stanu "W trakcie"');
+                    refreshStats();
+                } else {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        console.error('API error:', error);
+                        showToast('error', error.error || 'Błąd podczas przywracania zakładu');
+                    } else {
+                        const text = await response.text();
+                        console.error('Server returned non-JSON response:', text);
+                        showToast('error', `Błąd serwera: ${response.status}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error resetting bet result:', error);
+                showToast('error', 'Błąd połączenia z serwerem');
+            }
+        }
+
+        function applyFilters() {
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const type = document.getElementById('filterType').value;
+            const category = document.getElementById('filterCategory').value;
+            const result = document.getElementById('filterResult').value;
+            
+            let filteredBets = getFilteredBets();
+            
+            if (dateFrom) {
+                filteredBets = filteredBets.filter(bet => bet.date >= dateFrom);
+            }
+            
+            if (dateTo) {
+                filteredBets = filteredBets.filter(bet => bet.date <= dateTo);
+            }
+            
+            if (type) {
+                filteredBets = filteredBets.filter(bet => 
+                    (bet.betType || bet.bet_type) === type
+                );
+            }
+            
+            if (category) {
+                filteredBets = filteredBets.filter(bet => 
+                    (bet.betCategory || bet.bet_category) === category
+                );
+            }
+            
+            if (result) {
+                filteredBets = filteredBets.filter(bet => bet.result === result);
+            }
+            
+            displayHistoryBets(filteredBets);
+            showToast('success', `Znaleziono ${filteredBets.length} zakładów`);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded - StatsBet Pro v2.0');
+            
+            try {
+                initializeApp();
+                setupEventListeners();
+                initializeProfiles();
+                
+                setTimeout(() => {
+                    console.log('Auto-testing backend connection...');
+                    testBackendConnection();
+                }, 1000);
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                if (token) {
+                    verifyEmail(token);
+                    return;
+                }
+                
+                const savedToken = storage.getItem('authToken');
+                if (savedToken) {
+                    authToken = savedToken;
+                    const savedUserData = storage.getItem('currentUser');
+                    if (savedUserData) {
+                        try {
+                            const savedUser = JSON.parse(savedUserData);
+                            if (savedUser && savedUser.username) {
+                                showApp(savedUser);
+                                return;
+                            }
+                        } catch (e) {
+                            console.log('Error parsing saved user data');
+                        }
+                    }
+                }
+                
+                showAuth();
+            } catch (error) {
+                console.error('Error initializing app:', error);
+                showAuth();
+            }
+        });
+
+        // Make functions globally available for HTML onclick handlers
+        window.toggleAuthMode = toggleAuthMode;
+        window.switchTab = switchTab;
+        window.logout = logout;
+        window.refreshStats = refreshStats;
+        window.switchProfile = switchProfile;
+        window.openCreateProfileModal = openCreateProfileModal;
+        window.closeCreateProfileModal = closeCreateProfileModal;
+        window.duplicateCurrentProfile = duplicateCurrentProfile;
+        window.openDeleteProfileModal = openDeleteProfileModal;
+        window.closeDeleteProfileModal = closeDeleteProfileModal;
+        window.openResetProfileModal = openResetProfileModal;
+        window.closeResetProfileModal = closeResetProfileModal;
+        window.openGoalModal = openGoalModal;
+        window.closeGoalModal = closeGoalModal;
+        window.confirmDeleteProfile = confirmDeleteProfile;
+        window.confirmResetProfile = confirmResetProfile;
+        window.saveCurrentProfile = saveCurrentProfile;
+        window.editProfile = editProfile;
+        window.exportProfiles = exportProfiles;
+        window.importProfiles = importProfiles;
+        window.exportData = exportData;
+        window.startEditBet = startEditBet;
+        window.deleteBet = deleteBet;
+        window.cancelEdit = cancelEdit;
+        window.applyFilters = applyFilters;
+        window.resendVerification = resendVerification;
+        window.goToLogin = goToLogin;
+        window.toggleStakingInputs = toggleStakingInputs;
+        window.quickUpdateResult = quickUpdateResult;
+        window.resetBetResult = resetBetResult;
+        window.testBackendConnection = testBackendConnection;
+        window.hideToast = hideToast;
+        
+        // Archived Reports functions
+        window.viewReportDetails = viewReportDetails;
+        window.exportReport = exportReport;
+        window.deleteReport = deleteReport;
+        
+    </script>
+</body>
+</html>
