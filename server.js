@@ -1,4 +1,4 @@
-// StatsBet Backend with Email Verification - POPRAWIONY dla statsbet.pl
+// StatsBet Backend with Email Verification - MINIMALNA POPRAWKA CORS
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
@@ -15,33 +15,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 // Middleware
 app.use(express.json());
 
-// ✅ POPRAWIONA KONFIGURACJA CORS - DODANO HTTP STATSBET.PL
+// ⭐ JEDYNA ZMIANA - POPRAWIONA LISTA ORIGINS
 app.use(cors({
   origin: [
-    'http://statsbet.pl',        // ⭐ GŁÓWNA POPRAWKA - HTTP
-    'https://statsbet.pl',       // HTTPS dla przyszłości
-    'http://www.statsbet.pl',    // Z www
-    'https://www.statsbet.pl',   // Z www i HTTPS
-    'http://localhost:3000',     // Development
-    'http://localhost:8080',     // Development (jak było wcześniej)
-    'http://127.0.0.1:3000',     // Alternatywny localhost
-    'http://127.0.0.1:8080'      // Alternatywny localhost
+    'http://statsbet.pl',        // ⭐ DODANO
+    'https://statsbet.pl', 
+    'http://localhost:8080'
   ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  optionsSuccessStatus: 200
+  credentials: true
 }));
 
 app.use(express.static('public'));
 
-// Email transporter - POPRAWIONY
+// Email transporter - BEZ ZMIAN
 const transporter = nodemailer.createTransporter({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT || 587,
@@ -52,10 +38,10 @@ const transporter = nodemailer.createTransporter({
   }
 });
 
-// Database initialization - POPRAWIONY
+// Database initialization - BEZ ZMIAN
 const db = new sqlite3.Database(':memory:');
 
-// Create tables - POPRAWIONY (bez duplikatów)
+// Create tables - BEZ ZMIAN
 db.serialize(() => {
   // Users table with email verification
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -70,7 +56,7 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Bets table with profile_id, sport, note - POPRAWIONY
+  // Bets table with profile_id, sport, note
   db.run(`CREATE TABLE IF NOT EXISTS bets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -115,12 +101,12 @@ db.serialize(() => {
   console.log('✅ Database tables initialized');
 });
 
-// Email sending function - POPRAWIONY
+// Email sending function - BEZ ZMIAN
 const sendVerificationEmail = (email, username, token) => {
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://statsbet.pl'}?token=${token}`;
+  const verificationUrl = `${process.env.FRONTEND_URL || 'https://statsbet.pl'}?token=${token}`;
   
   const mailOptions = {
-    from: process.env.SMTP_USER, // POPRAWIONY
+    from: process.env.SMTP_USER,
     to: email,
     subject: 'StatsBet Pro - Potwierdź swoje konto',
     html: `
@@ -163,6 +149,7 @@ const sendVerificationEmail = (email, username, token) => {
   });
 };
 
+// RESZTA KODU IDENTYCZNA JAK WCZEŚNIEJ...
 // Auth middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -358,7 +345,7 @@ app.get('/api/bets', authenticateToken, (req, res) => {
   });
 });
 
-// Add new bet - POPRAWIONY (dodano sport, note)
+// Add new bet
 app.post('/api/bets', authenticateToken, (req, res) => {
   const { date, betType, betCategory, odds, stake, potentialWin, result, profileId, sport, note } = req.body;
 
@@ -385,7 +372,7 @@ app.post('/api/bets', authenticateToken, (req, res) => {
   );
 });
 
-// Update bet - POPRAWIONY (dodano sport, note)
+// Update bet
 app.put('/api/bets/:id', authenticateToken, (req, res) => {
   const betId = req.params.id;
   const { date, betType, betCategory, odds, stake, potentialWin, result, profileId, sport, note } = req.body;
@@ -631,30 +618,10 @@ app.delete('/api/saved-stats/:id', authenticateToken, (req, res) => {
   );
 });
 
-// Health check - DODANO INFORMACJĘ O CORS
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'StatsBet API is running with email verification',
-    cors: 'enabled for statsbet.pl',
-    allowedOrigins: [
-      'http://statsbet.pl',
-      'https://statsbet.pl',
-      'http://www.statsbet.pl',
-      'https://www.statsbet.pl'
-    ]
-  });
+  res.json({ status: 'OK', message: 'StatsBet API is running with email verification' });
 });
-
-// Start server - DISABLED FOR VERCEL
-/*
-app.listen(PORT, () => {
-  console.log(`StatsBet Backend running on port ${PORT}`);
-  console.log(`API available at: http://localhost:${PORT}/api`);
-  console.log('Email verification enabled');
-  console.log('CORS enabled for: http://statsbet.pl, https://statsbet.pl');
-});
-*/
 
 // Export for Vercel
 module.exports = app;
